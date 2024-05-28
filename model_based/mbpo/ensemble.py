@@ -4,8 +4,17 @@ import torch.nn.functional as F
 import numpy as np
 import gymnasium as gym
 from Actor import Actor
+# This class represents a probabilistic neural network in Python using PyTorch.
 class ProbabilisticNeuralNetwork(nn.Module):
     def weight_init(self,m):
+        """
+        The `weight_init` function initializes the weights of linear layers using Kaiming normal
+        initialization and sets biases to zero.
+        
+        :param m: In the given code snippet, the parameter `m` is a module or a layer in a neural network.
+        The `weight_init` function is designed to initialize the weights and biases of linear layers using
+        the Kaiming normal initialization for weights and constant initialization (zero) for biases
+        """
         if isinstance(m, nn.Linear):
             nn.init.kaiming_normal_(m.weight)
             nn.init.constant_(m.bias, 0)
@@ -24,18 +33,23 @@ class ProbabilisticNeuralNetwork(nn.Module):
         self.pnn = nn.Sequential(*layers)
         #self.pnn.apply(self.weight_init)
 
-        self.log_std_min = -10 #nn.Parameter((-torch.ones((1, output_dim)).float() * 10), requires_grad=False)
-        self.log_std_max = 2 #nn.Parameter((torch.ones((1, output_dim)).float() / 2), requires_grad=False)
+        self.log_std_min = -10 
+        self.log_std_max = 2 
 
     def forward(self, x):
+        """
+        The `forward` function takes an input `x`, processes it through a neural network `pnn`, and returns
+        the mean and log standard deviation after some transformations.
+        
+        :param x:Input x
+        """
         x = self.pnn(x)
         mean, log_std = torch.chunk(x, 2, dim=-1)
         log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
         log_std = self.log_std_max - F.softplus(self.log_std_max - log_std)
         log_std = self.log_std_max + F.softplus(log_std - self.log_std_max)
         return mean, log_std
-        #logvar = self.log_std_max - F.softplus(self.log_std_max - logvar)
-        #logvar = self.log_std_min + F.softplus(logvar - self.log_std_min)
+
 class Ensemble(nn.Module):
     def __init__(self, env,learning_rate , hidden_dim=256, num_ensembles=4,hidden_layers=4):
         super(Ensemble, self).__init__()
@@ -54,6 +68,17 @@ class Ensemble(nn.Module):
         self.elite_models = self.ensembles
         self.elite_optimizers =self.optimizers
     def forward(self, state, action):
+        """
+        The `forward` function takes a state and an action as input, concatenates them, passes them through
+        a list of ensemble models, and returns the means and log standard deviations of the output
+        distributions.
+        
+        :param state: Input state
+        :return: The `forward` method returns two tensors: `means` and `log_stds`. `means` is a tensor
+        containing the means calculated from the ensemble models for the given state and action, and
+        `log_stds` is a tensor containing the log standard deviations calculated from the ensemble models
+        for the given state and action.
+        """
         q = torch.cat([torch.tensor(state).float(), torch.tensor(action).float()], dim=-1)
         q = [ensemble(q) for ensemble in self.elite_models]
         means, log_stds = zip(*q)
@@ -61,7 +86,12 @@ class Ensemble(nn.Module):
         log_stds = torch.stack(log_stds)
         return means, log_stds
 
-    def init_weights(self, init_method):
+    def init_weights(self):
+        """
+        The `init_weights` function initializes the weights of linear layers in ensembles using a specified
+        initialization method.
+        
+        """
         init_w = 0.001
         for layer in self.ensembles:
             for l in layer.pnn:
@@ -69,7 +99,15 @@ class Ensemble(nn.Module):
                     l.weight.data.uniform_(-init_w, init_w)
                     l.weight.data.uniform_(-init_w, init_w)
 
-    def sample_predictions(self, actor , state, action):
+    def sample_predictions(self, state, action):
+        """
+        This function generates sample predictions using a random model from an ensemble and samples an
+        action from the chosen model's distribution.
+        
+        :param state: Input current state
+        :param action: Input actions 
+        :return: The `sample_predictions` function returns the next state and reward.
+        """
         sample_means = []
         sample_stds = []
         means, log_stds = self(state, action)
@@ -90,18 +128,23 @@ class Ensemble(nn.Module):
         sample_std_ = sample_stds[chosen_model][:,:,1:].exp().sqrt() 
         sample_mean_= sample_mean[:,:,1:] 
         sample_mean_action =  sample_mean[:,:,:1] 
-        sample_std_action = sample_stds[chosen_model][:,:,:1].exp().sqrt() 
-        # Sample an action from the chosen model's distribution
-        #print(state.shape)
-        #print(sample_mean_.shape)
+        #sample_std_action = sample_stds[chosen_model][:,:,:1].exp().sqrt() 
         next_state= state + torch.distributions.Normal(sample_mean_,sample_std_).sample()
         reward = torch.distributions.Normal(sample_mean_action,1).sample()
-        #action, log_prob = actor.get_action(next_state)
-        # Extract the desired action and reshape
-        #action = torch.tensor(self.low + (self.high - self.low)) * (action + 1) / 2
         return next_state, reward#.squeeze(1)
     
     def loss(self, predicted_mus, predicted_log_vars, target_states):
+        """
+        This function calculates the loss using predicted means and log variances, selects elite models
+        based on the loss values, and returns the mean loss.
+        
+        :param predicted_mus: The `predicted_mus` parameter seems to represent the predicted means from a
+        model. 
+        :param predicted_log_vars: The `predicted_log_vars` parameter in the `loss` function represents the
+        predicted logarithm of the variance for each ensemble model.
+        :param target_states: `target_states` is a tensor representing the target states for the model.
+        :return: the mean of the losses calculated for the predicted values compared to the target states.
+        """
         target_states = target_states.unsqueeze(0).expand(self.num_ensembles, -1, -1)
         mse_loss = nn.MSELoss(reduction='none')
         inv_var = torch.exp(-predicted_log_vars)
@@ -126,7 +169,15 @@ class Ensemble(nn.Module):
         self.optimizers = optimizers
         return losses.mean()
 
-    def train(self, data,epochs=10, batch_size=256):
+    def train(self, data,epochs=10):
+        """
+        This function to train the ensemble 
+        
+        :param data: The sampled data from environment that is used to train the model
+        :param epochs: Number of epochs to train
+        :param target_states: `target_states` is a tensor representing the target states for the model.
+        :return: the mean of the losses calculated for the predicted values compared to the target states.
+        """
         obs = torch.tensor(data.observations.squeeze(1), dtype=torch.float32)
         action = torch.tensor(data.actions, dtype=torch.float32)
         targets = torch.tensor(data.next_observations.squeeze(1), dtype=torch.float32)

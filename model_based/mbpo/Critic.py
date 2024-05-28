@@ -4,11 +4,6 @@ import numpy as np
 import torch.nn.functional as F
 
 class Critic(nn.Module):
-    def weight_init(self,m):
-        init_w = 0.01
-        if isinstance(m, nn.Linear):
-            m.weight.data.uniform_(-init_w, init_w)
-            m.weight.data.uniform_(-init_w, init_w)
     def __init__(self, env,hidden_dim, hidden_layers,init_w=0.05):
         super(Critic, self).__init__()
         layers = []
@@ -25,9 +20,12 @@ class Critic(nn.Module):
         # Create Sequential model
         self.q1 = nn.Sequential(*layers)
         self.q2 = nn.Sequential(*layers)
-        #self.q1.apply(self.weight_init)
-        #self.q2.apply(self.weight_init)
-    def init_weights(self, init_method):
+    def init_weights(self):
+        """
+        The `init_weights` function initializes the weights of linear layers in ensembles using a specified
+        initialization method.
+        
+        """
         init_w = 0.001
         for layer in self.q1:
             if isinstance(layer, nn.Linear):
@@ -38,11 +36,25 @@ class Critic(nn.Module):
                 layer.weight.data.uniform_(-init_w, init_w)
                 layer.weight.data.uniform_(-init_w, init_w)
     def forward(self, state, action):
-        #print(self.critics[0][0].weight)
+        """
+        This Python function takes a state and an action as input, outputs the q values
+        
+        :param state: The input state
+        :param action: Input action
+        :return: The predicated q values 
+        """
         q = torch.cat([torch.tensor(state).to(torch.float32), torch.tensor(action).to(torch.float32)], dim=-1)
         return self.q1(q), self.q2(q)
 
     def q1_forward(self, state, action):
+        """
+        This Python function takes a state and an action as input, outputs the q values 
+        based only on one critic network
+        
+        :param state: The input state
+        :param action: Input action
+        :return: The predicated q values 
+        """
         q =   torch.cat([torch.tensor(state).to(torch.float32), torch.tensor(action).to(torch.float32)], 1)
         q_values = self.critics[0](q)
         return q_values

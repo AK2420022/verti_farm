@@ -3,6 +3,16 @@ import numpy as np
 device = torch.device( "cpu")
 
 def get_noisy_action(actor,obs,env,sigma):
+    """
+    The function `get_noisy_action` adds noise to a deterministic action using an Ornstein-Uhlenbeck
+    process and clips the noisy action within the action bounds.
+    
+    :param actor: The `actor` model
+    :param env: The current environment
+    :param sigma: The `sigma` parameter in the `get_noisy_action` function represents the standard
+    deviation of the noise added to the action. 
+    :return: The noise added action
+    """
     with torch.no_grad():
         #deterministic action
         action = actor(torch.Tensor(obs).to(device))
@@ -15,6 +25,17 @@ def get_noisy_action(actor,obs,env,sigma):
     return noisy_action
 
 def get_noisy_action_target(actor,obs,env, sigma_d, noise_clip):
+    """
+    The function `get_noisy_action` adds noise to a deterministic action using an Ornstein-Uhlenbeck
+    process and clips the noisy action within the action bounds.
+    
+    :param actor: The `actor` model
+    :param env: The current environment
+    :param sigma_d: The `sigma` parameter in the `get_noisy_action` function represents the standard
+    deviation of the noise added to the action. 
+    :param noise_clip: The bounds for the noises
+    :return: The noise added action
+    """
     with torch.no_grad():
         #deterministic action
         action = actor(torch.Tensor(obs).to(device))

@@ -39,7 +39,7 @@ plt.rcParams['figure.dpi'] = 100
 device = torch.device("cpu")
 exp = edict()
 
-exp.exp_name = 'TD3'  # algorithm name, in this case it should be 'DQN'
+exp.exp_name = 'SAC'  # algorithm name, in this case it should be 'DQN'
 exp.env_id = 'Hopper-v3'  # name of the gym environment to be used in this experiment. Eg: Acrobot-v1, CartPole-v1, MountainCar-v0
 exp.device = device.type  # save the device type used to load tensors and perform tensor operations
 
@@ -144,11 +144,11 @@ actor_target = copy.deepcopy(actor)
 optimizer_actor = optim.Adam(actor.parameters(), lr=hypp.learning_rate_actor )
 #scheduler = lr_scheduler.LinearLR(optimizer_actor, start_factor=1.0, end_factor=0.3, total_iters=5000)
 # Create Critic class Instance and network optimizer Q1
-critic = Critic1(env,hypp.hidden_dim ,2).to(device)
+critic = Critic1(env,hypp.hidden_dim ).to(device)
 critic_target = copy.deepcopy(critic)
 optimizer_critic = optim.Adam(critic.parameters() ,lr=hypp.learning_rate_critic, weight_decay=0 )
 # Create Critic class Instance and network optimizer Q2
-critic2 = Critic2(env,hypp.hidden_dim ,2).to(device)
+critic2 = Critic2(env,hypp.hidden_dim).to(device)
 critic_target2 = copy.deepcopy(critic2)
 optimizer_critic2 = optim.Adam(critic2.parameters() ,lr=hypp.learning_rate_critic, weight_decay=0 )
 hypp.target_entropy = float(-np.prod(env.action_space.shape).astype(np.float32))
@@ -288,10 +288,7 @@ for update in pbar:
                     target_param.data.copy_(hypp.tau * param.data + (1 - hypp.tau) * target_param.data)
                 #update scheduler
                 gradient_step+=1
-                #print(scheduler.get_last_lr())
-                #scheduler.step()
-                #scheduler_critic.step()
-                #scheduler_actor.step()
+                
     
 # one last evaluation stage
 if exp.eval_agent:
@@ -322,12 +319,6 @@ if hypp.plot_training:
 
     eval_params.run_name00 = exp.run_name
     eval_params.exp_type00 = exp.exp_type
-
-    # eval_params.run_name01 = "CartPole-v1__PPO__1__230302_224624"
-    # eval_params.exp_type01 = None
-
-    # eval_params.run_name02 = "CartPole-v1__PPO__1__230302_221245"
-    # eval_params.exp_type02 = None
 
     agent_labels = []
 
@@ -368,8 +359,6 @@ if hypp.display_evaluation:
         # To break the loop if it is closed manually
         if isclosed:
             break
-
-
 
         cap.release()
         cv2.destroyAllWindows()

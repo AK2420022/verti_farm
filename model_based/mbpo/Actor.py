@@ -21,7 +21,19 @@ class SquashBijector:
         return log_prob
 
 class Actor(nn.Module):
-    def __init__(self, env, hidden_dim,hidden_layers, log_std_min=-20, log_std_max=2, init_w=0.005):
+    def __init__(self, env, hidden_dim,hidden_layers, log_std_min=-20, log_std_max=2):
+        """
+        This function initializes the parameters for an actor neural network used in reinforcement learning,
+        setting up the layers for mean and log standard deviation calculations.
+        
+        :param env: The environment to 
+        :param hidden_dim: the size of the hidden layers in the neural network architecture
+        :param log_std_min:the minimum value for the logarithm of the standard deviation. This parameter is
+        initialized with a default value of -20
+        :param log_std_max: the maximum value for the logarithm of the standard deviation in a probabilistic policy.  defaults to
+        2 (optional)
+        :param init_w: the range for initializing the weights of the mean and log standard deviation layers.
+        """
         super(Actor, self).__init__()
         #self.env = env
         self.action_space_type = type(env.action_space)
@@ -45,13 +57,29 @@ class Actor(nn.Module):
         self.actor = nn.Sequential(*layers)
        
         #self.actor.apply(self.weight_init)
-    def init_weights(self, init_method):
+    def init_weights(self):
+        """
+        The `init_weights` function initializes the weights of linear layers in ensembles using a specified
+        initialization method.
+        
+        """
         init_w = 0.005
         for layer in self.actor:
             if isinstance(layer, nn.Linear):
                 layer.weight.data.uniform_(-init_w, init_w)
                 layer.weight.data.uniform_(-init_w, init_w)
     def forward(self, state):
+        """
+        The `forward` function takes a state and an action as input, concatenates them, passes them through
+        a list of ensemble models, and returns the means and log standard deviations of the output
+        distributions.
+        
+        :param state: Input state
+        :return: The `forward` method returns two tensors: `means` and `log_stds`. `means` is a tensor
+        containing the means calculated from the ensemble models for the given state and action, and
+        `log_stds` is a tensor containing the log standard deviations calculated from the ensemble models
+        for the given state and action.
+        """
         a = self.actor(torch.tensor(state).to(torch.float32))
         mean, log_std = torch.chunk(a, 2, dim=-1)
         #log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
@@ -60,6 +88,23 @@ class Actor(nn.Module):
         return mean, log_std
 
     def get_action(self, state, deterministic=False, epsilon=1e-6):
+        """
+        The `get_action` function in Python calculates an action and its log probability based on a given
+        state and environment, with options for deterministic or stochastic behavior.
+        
+        :param state: The current state
+        :param deterministic: The `deterministic` parameter in the `get_action` method is a boolean flag
+        that determines whether the action selection should be deterministic or stochastic
+        :param explore: The `explore` parameter in the `get_action` method is used to determine whether the
+        agent should explore or exploit in the context of reinforcement learning. When `explore` is set to
+        `True`, the agent will choose actions that may not be optimal but help in exploring the environment
+        to learn
+        :param epsilon: The `epsilon` parameter in the `get_action` function is a small value used to
+        prevent division by zero when calculating the logarithm of very small numbers. It is added to the
+        denominator to ensure numerical stability in the computation. In this case, `epsilon` is set to 1e-6
+        :return: The function `get_action` returns the action and the log probability of that action based
+        on the input parameters and the calculations performed within the function.
+        """
         mean, log_std = self.forward(state)
         std = log_std.exp()
         mean = mean#.detach()
@@ -78,12 +123,5 @@ class Actor(nn.Module):
         # Calculate log probability
         # Apply inverse transformation of squash bijector to calculate log_prob
         log_prob = distribution.log_prob(action_).sum(-1, keepdim=True)
-        #print("Log probability, ", log_prob)
-        # Apply correction term for tanh-squashing
-        #correction = torch.log(torch.tensor(self.high ) - atan_action.pow(2) + epsilon).sum(-1, keepdim=True)
-        #print("log, " ,action.pow(2) )
-        #print("torch.tensor(self.high), " , torch.log(torch.tensor(self.high ** 2 )) )
-        #log_prob -= correction
         log_prob =  SquashBijector.log_prob(log_prob, action_)
-        #print((torch.tensor(self.high) - tanh_action.pow(2) + epsilon))
         return action, log_prob

@@ -194,7 +194,7 @@ for update in pbar:
         global_step += 1 * exp.num_envs
         obs = next_obs
 
-# -------------------------- EVALUATION - DO NOT EDIT ----------------------- #
+    # -------------------------- EVALUATION - DO NOT EDIT ----------------------- #
 
         # generate average performance statistics of current learned agent
         if exp.eval_agent and episode_step % exp.eval_frequency == 0 and last_evaluated_episode != episode_step:
@@ -210,7 +210,7 @@ for update in pbar:
                 # call helper function save_and_log_agent to save model, create video, log video to wandb
                 hf.save_and_log_agent(exp, agent, episode_step, greedy=greedy_evaluation, print_path=False)
 
-# ------------------------------- END EVALUATION ---------------------------- #
+    # ------------------------------- END EVALUATION ---------------------------- #
 
     next_done = done.reshape(1, -1)
     agent.train()

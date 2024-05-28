@@ -11,7 +11,6 @@ class ReplayBufferSamples(NamedTuple):
     next_observations: torch.Tensor
     dones: torch.Tensor
     rewards: torch.Tensor
-    #achieved_goal: torch.Tensor
 class HerBuffer():   
     def __init__(self,env,buffer_size,n_envs,observation_space,action_space,device,batch_size,goal_selection_strategy,n_goals=5):
         self.buffer_size = max(buffer_size//n_envs,1)
@@ -85,15 +84,17 @@ class HerBuffer():
 
 
     @staticmethod
+
     def _maybe_cast_dtype(dtype: np.typing.DTypeLike) -> np.typing.DTypeLike:
         """
-        Cast `np.float64` action datatype to `np.float32`,
-        keep the others dtype unchanged.
-        See GH#1572 for more information.
-
-        :param dtype: The original action space dtype
-        :return: ``np.float32`` if the dtype was float64,
-            the original dtype otherwise.
+        The function `_maybe_cast_dtype` checks if the input `dtype` is `np.float64` and returns
+        `np.float32` if true, otherwise it returns the input `dtype`.
+        
+        :param dtype: The `dtype` parameter is a data type object that represents the data type of elements
+        in a NumPy array. In this code snippet, the `_maybe_cast_dtype` method is a static method that takes
+        a `dtype` parameter of type `np.typing.DTypeLike`, which is a type
+        :type dtype: np.typing.DTypeLike
+        :return: np.float32
         """
         if dtype == np.float64:
             return np.float32
@@ -113,12 +114,18 @@ class HerBuffer():
         return torch.as_tensor(array, device=self.device)
 
     def add(self,obs, next_obs, noisy_action, reward, done, infos):
-        # The `episode_start` variable in the `HerBuffer` class is used to keep track of the
-        # starting index of each episode in the replay buffer. It is an array that stores the
-        # indices where each episode begins within the buffer. This information is important for
-        # various operations within the `HerBuffer` class, such as calculating the length of
-        # episodes, selecting additional goals based on different strategies, and handling
-        # episode transitions.
+        """
+        This function adds data from a single step in a reinforcement learning environment to a buffer for
+        training.
+        
+        :param obs: The current observation
+        :param next_obs: The next observation
+        :param noisy_action: Current action
+        :param reward: The current reward
+        :param done: The `done` termination parameter 
+        :param infos: The `infos` parameter in the `add` method is a dictionary containing additional
+        information about the environment or the current step. 
+        """
         pos = self.buffer_count % self.buffer_size
         for env in range(self.n_envs):
             episode_start = self.episode_start[pos, env]
@@ -162,6 +169,25 @@ class HerBuffer():
         
 
     def get_additional_goals(self, batch_indices,env_indices,goal_selection_strategy):
+        """
+        The `get_additional_goals` function retrieves additional goals based on a specified strategy within
+        an episode.
+        
+        :param batch_indices: Batch indices refer to the indices of the batches in the dataset. In the
+        context of the `get_additional_goals` method, `batch_indices` are used to identify the specific
+        batch for which additional goals need to be retrieved
+        :param env_indices: `env_indices` represents the indices of the environments for which additional
+        goals need to be retrieved. These indices are used to identify specific environments within the
+        batch for which the additional goals will be selected based on the specified
+        `goal_selection_strategy`
+        :param goal_selection_strategy: The `goal_selection_strategy` parameter in the
+        `get_additional_goals` method determines how additional goals are selected. The possible values for
+        `goal_selection_strategy` are:
+        :return: The `get_additional_goals` method returns additional goals based on the specified
+        `goal_selection_strategy` for the given `batch_indices` and `env_indices`. The method calculates the
+        `additional_goals` based on the selected strategy ("final", "future", or "episode") and returns
+        these additional goals.
+        """
         # The `episode_start` variable in the `additional_goals` method is used to retrieve the
         # starting index of the episode corresponding to the given `batch_indices` and `env_id`. This
         # starting index is important for determining the position of the goals within the episode. It
@@ -187,16 +213,22 @@ class HerBuffer():
             print("wrong goal selection strategy")
         indices = (episode_start+ goals_indices) % self.buffer_size
         additional_goals = self.next_observations["achieved_goal"][indices]
-        # print("next")
-        # print(self.next_observations["achieved_goal"][indices])  
-        # print("neaxt")
-        # print(self.next_observations["achieved_goal"])  
-        #print("add gaols: ",additional_goals[0])
         
         return additional_goals
 
     
     def sample(self,batch_size):
+        """
+        The `sample` function generates samples for a replay buffer, including real and virtual samples for
+        the HER (Hindsight Experience Replay) algorithm.
+        
+        :param batch_size: The `batch_size` parameter in the `sample` method represents the number of
+        samples to be retrieved from the replay buffer for training purposes. It determines the size of the
+        batch of data that will be used in each training iteration
+        :return: The `sample` method returns an instance of `ReplayBufferSamples` class, which is
+        constructed using the data tuple containing `obs_sample`, `actions`, `next_obs_sample`, `dones`, and
+        `rewards`.
+        """
         ###############initialize storage
         obs_sample = OrderedDict()
         obs_sample['achieved_goal'] = np.full((self.batch_size, self.n_envs), self.goal_dtype , dtype=object)

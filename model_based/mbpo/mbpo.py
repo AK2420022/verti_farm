@@ -35,19 +35,40 @@ plt.rcParams['figure.dpi'] = 100
 device = torch.device( "cpu")
 class RewardScaler:
     def __init__(self):
+        """
+        Initializes the RewardScaler with default values for mean, variance, and count.
+
+        The count is initialized to a small value (1e-10) to prevent division by zero during the first update.
+        """
         self.mean = 0.0
         self.var = 1.0
         self.count = 1e-10  # Prevent division by zero
 
     def scale(self, reward):
+        """
+        Normalizes the input reward using the running mean and variance.
+        
+        :param reward: The reward to be normalized.
+        :return: The normalized reward.
+        
+        """
         self.count += 1
         self.mean = self.mean + (reward - self.mean) / self.count
         self.var = self.var + (reward - self.mean) * (reward - self.mean)
         std = (self.var / self.count) ** 0.5
         return (reward - self.mean) / std
 class mbpo():
+    """
+    The mbpo class implements the Model-Based Policy Optimization (MBPO) algorithm.
+    """
     def __init__(self,exp =edict(),hypp=edict()):
+        """
+        Initializes the MBPO class with the given experiment and hyperparameter configurations.
 
+        :param exp: Experiment configuration. Default is an empty edict.
+
+        :param hypp: Hyperparameter configuration. Default is an empty edict.
+        """
         if exp.set_random_seed:
             random.seed(exp.seed)
             np.random.seed(exp.seed)
@@ -86,6 +107,14 @@ class mbpo():
         self.prev_action = torch.zeros(size=(self.hypp.num_rollouts, 1))
 
     def generate_data(self,model_env,env_rb,samples = 5000):
+        """
+        Generates data using the model environment and stores it in the replay buffer.
+
+        :param model_env: The model environment used for data generation.
+        :param env_rb: The replay buffer where generated data is stored.
+        :param samples: The number of samples to generate. Default is 5000.
+\
+        """
         obs = model_env.reset()[0]
         episode_step = 0
         for _ in range(samples):
@@ -100,24 +129,27 @@ class mbpo():
                 obs = model_env.reset()[0]
 
     def do_rollouts(self,env,policy,ensemble, env_buffer,model_buffer,batch_size):
+        """
+        Performs rollouts using the given policy and ensemble, storing the results in the model buffer.
+
+        :param env: The environment used for sampling initial states.
+        :param policy: The policy used to generate actions.
+        :param ensemble: The ensemble model used for predicting next states and rewards.
+        :param env_buffer: The environment replay buffer for sampling initial states.
+        :param model_buffer: The model replay buffer where rollout data is stored.
+        :param batch_size: The number of samples to use for rollouts.
+
+        """
         episode_step = 0
         states = env_buffer.sample(batch_size).observations
         accum_dones = torch.zeros(size=(batch_size,1), dtype=bool)
-        #state = states[-1]
-        #print("self._rollout_length, ", self._rollout_length)
+
         for _ in range(self._rollout_length):
             #sample st from Denv
-
-            #nonterm_mask = np.full(states.shape[0],False,dtype=bool)
-            #kstep rollput starting from st and policy, add to model
             action, log_prob = policy.get_action(states)
-            next_obs, reward = ensemble.sample_predictions(policy,states,action)
-            #reward function
+            next_obs, reward = ensemble.sample_predictions(states,action)
+            #reward function (optional reward?)
             _,done = self.compute_reward(env,next_obs,action)
-            #print("action: ", new_action)
-            #print("pole angle: " , pole_angle)
-            # Define the custom reward
-            #print("reward: ", reward)
             not_done_mask = ~accum_dones
             truncated = False if episode_step < 1000 else True
             done = np.logical_or( done ,  truncated)
@@ -127,165 +159,116 @@ class mbpo():
             accum_dones =(accum_dones | done).to(torch.bool)
             episode_step +=1
             # Reset states if necessary
-
             # Break if all rollouts are done
             if done.all():
                 break
     def insert_batch(self,model_buffer,obs,next_obs,action,reward,done,info):
+        """
+        Inserts a batch of transitions into the model buffer.
+
+        :param model_buffer: The buffer where transitions are stored.
+        :param obs: The current observations.
+        :param next_obs: The next observations after taking the action.
+        :param action: The actions taken from the current observations.
+        :param reward: The rewards received after taking the actions.
+        :param done: The done flags indicating whether the episode has ended.
+        :param info: Additional information about the transitions.
+
+        """
         for i in range(obs.shape[0]):
             model_buffer.add(obs[i],next_obs[i],action[i].detach().numpy(),reward[i],done[i],{})
+
     def compute_reward(self,env,state,action):
+        """
+        Computes the reward based on the environment and the current state and action.
 
-            if self.exp.env_id == "HalfCheetah-v5":
-                x_vel = state[:,8]
-                rewards = env.call("_get_rew",x_vel,action) 
-                reward = rewards[0][0] 
+        :param env: The environment from which the reward is computed.
+        :param state: The current state of the environment.
+        :param action: The action taken from the current state.
+        :return: A tuple (reward, done) where reward is the computed reward and done is a flag indicating
+                whether the episode has ended.
 
-                if rewards[0][1]["reward_forward"][0] < 0 :
-                    reward = rewards[0][1]["reward_forward"][0] * 0.8 - rewards[0][1]["reward_ctrl"] * 0.5
-                done = False 
-                return reward, done
-            elif self.exp.env_id == "InvertedDoublePendulum-v5":
-                pole_angle = state[:,1]
-                
-                reward = 1.0 if np.abs(pole_angle) < 0.2 else -1
-                done = np.abs(pole_angle) > 0.2
-                return reward, done
-            elif self.exp.env_id == "InvertedPendulum-v5":
-                pole_angle = state[:,:,1]
-                #if old_angle == None:
-                #    old_angle = 0
-                #absolute_change = old_angle - pole_angle
-                # Penalize based on the pole angle
-                # Penalize based on the pole angle
-                angle_penalty = pole_angle ** 2
+        This method calculates the reward and done flag differently depending on the environment ID:
+        
+        - "HalfCheetah-v5": Computes the reward based on the x-velocity and control cost. 
+        Penalizes negative forward rewards.
+        - "InvertedPendulum-v5": Computes the reward based on the pole angle and action magnitude.
+        Applies penalties or rewards based on changes in pole angle and action direction. Done flag is
+        set if the pole angle exceeds a threshold.
+        """
+        if self.exp.env_id == "HalfCheetah-v5":
+            x_vel = state[:,8]
+            rewards = env.call("_get_rew",x_vel,action) 
+            reward = rewards[0][0] 
 
-                # Penalize based on the action magnitude
-                action_penalty = self.action_penalty * (action ** 2)
+            if rewards[0][1]["reward_forward"][0] < 0 :
+                reward = rewards[0][1]["reward_forward"][0] * 0.8 - rewards[0][1]["reward_ctrl"] * 0.5
+            done = False 
+            return reward, done
+        elif self.exp.env_id == "InvertedPendulum-v5":
+            pole_angle = state[:,:,1]
+            #absolute_change = old_angle - pole_angle
+            # Penalize based on the pole angle
+            # Penalize based on the pole angle
+            angle_penalty = pole_angle ** 2
 
-                # Initialize the reward
-                reward = - (angle_penalty + action_penalty)
-                i=0
-                for pole_ang, prev_angle,act,prev_act,angle_threshold in zip(pole_angle,self.prev_pole_angle,action.detach().numpy(),self.prev_action.detach().numpy(),self.angle_threshold):
-                    # Check if the pole angle increased and the action is in the same direction as the previous action
-                    if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
-                        # Penalize if the pole angle increased and action is in the same direction
-                        reward[i] -= self.directional_reward 
-                    elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
-                        # Reward if the pole angle increased and action is in the opposite direction
-                        reward[i] += self.directional_reward
+            # Penalize based on the action magnitude
+            action_penalty = self.action_penalty * (action ** 2)
 
-                    # If the pole has fallen over (angle exceeds threshold), return a large negative reward
-                    if abs(pole_ang) > angle_threshold:
-                        reward[i] =  -1  # Large negative reward for falling over
-                    i+=1
-                # Update the previous angle and action
-                self.prev_pole_angle = pole_angle
-                self.prev_action = action
-                #reward = 1.0 if np.abs(pole_angle) < 0.2 else -1
-                done = (abs(pole_angle) > self.angle_threshold)
-                #old_angle = pole_angle
-                return reward, done
+            # Initialize the reward
+            reward = - (angle_penalty + action_penalty)
+            i=0
+            for pole_ang, prev_angle,act,prev_act,angle_threshold in zip(pole_angle,self.prev_pole_angle,action.detach().numpy(),self.prev_action.detach().numpy(),self.angle_threshold):
+                # Check if the pole angle increased and the action is in the same direction as the previous action
+                if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
+                    # Penalize if the pole angle increased and action is in the same direction
+                    reward[i] -= self.directional_reward 
+                elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
+                    # Reward if the pole angle increased and action is in the opposite direction
+                    reward[i] += self.directional_reward
+
+                # If the pole has fallen over (angle exceeds threshold), return a large negative reward
+                if abs(pole_ang) > angle_threshold:
+                    reward[i] =  -1  # Large negative reward for falling over
+                i+=1
+            # Update the previous angle and action
+            self.prev_pole_angle = pole_angle
+            self.prev_action = action
+            #reward = 1.0 if np.abs(pole_angle) < 0.2 else -1
+            done = (abs(pole_angle) > self.angle_threshold)
+            #old_angle = pole_angle
+            return reward, done
     def print_param_values(self,model):
+        """
+        Prints the values of the parameters of the given model.
+
+        :param model: The model whose parameters are to be printed.
+
+        This method iterates over the named parameters of the model and prints the name and value of each parameter.
+        """
         for name, param in model.named_parameters():
             print(f"Parameter {name} value: {param.data}")
+
     def linear_scheduler(self,epoch):
+        """
+        Returns the linear decay value for the learning rate scheduler.
+
+        :param epoch: The current epoch number.
+        :return: The decay value based on the current epoch and total timesteps.
+
+        This method computes a linear decay value that decreases from 1 to 0 over the total number of timesteps.
+        """
         return 1 - epoch / self.hypp.total_timesteps
-    def train_actor(self,actor, mb_buffer,env_buffer,ent_coef,log_alpha,log_entropy,update_params):
-        # Hyperparameters and ratios
-        max_grad_norm = 2
-        ratio = self.hypp.real_img_ratio
-        real_size = int(self.hypp.batch_size * ratio)
-        img_data_size = int(self.hypp.batch_size * (1 - ratio))
-        
-        # Sample data
-        real_data = env_buffer.sample(real_size)
-        img_data = mb_buffer.sample(img_data_size)
-        data = ReplayBufferSamples(
-            observations=torch.cat((real_data.observations, img_data.observations), dim=0),
-            actions=torch.cat((real_data.actions, img_data.actions), dim=0),
-            next_observations=torch.cat((real_data.next_observations, img_data.next_observations), dim=0),
-            dones=torch.cat((real_data.dones, img_data.dones), dim=0),
-            rewards=torch.cat((real_data.rewards, img_data.rewards), dim=0)
-        )
-        # Reward scaling
-        scaler = RewardScaler()
-        rewards =data.rewards# scaler.scale(data.rewards)
-        #print(rewards)
-        # Current action and probabilities
-        actions, log_prob = actor.get_action(data.observations.squeeze(1).to(torch.float32), deterministic=False)
 
-        # Update entropy coefficient
-        ent_coef_loss = -((log_alpha * (log_entropy + log_prob))).mean()
-        self.alpha_optimizer.zero_grad()
-        ent_coef_loss.backward(retain_graph=True)
-        grad_norm = log_alpha.grad.abs()
-        if grad_norm > max_grad_norm:
-            log_alpha.grad *= max_grad_norm / grad_norm
-        self.alpha_optimizer.step()
-        ent_coef = torch.exp(log_alpha)
-
-        # Update actor
-        q1_actor, q2_actor = self.critic(data.observations.squeeze(1), actions)
-        min_q_actor = torch.min(q1_actor, q2_actor)
-        policy_loss = ((ent_coef * log_prob) - min_q_actor).mean()
-        #print("before")
-        #self.print_param_values(self.policy)
-        self.optimizer_actor.zero_grad()
-        policy_loss.backward()
-        #clip_grad_norm_(self.policy.parameters(), max_grad_norm)
-        self.optimizer_actor.step()
-        self.scheduler.step()
-        self.scheduler_critic.step()    
-        #print("after")
-        #self.print_param_values(self.policy)
-        # Update critic
-        with torch.no_grad():
-            new_action, new_log_prob = actor.get_action(data.next_observations.to(torch.float32).squeeze(1), deterministic=False)
-            new_q_value1, new_q_value2 = self.critic_target(data.next_observations.squeeze(1), new_action)
-            new_q_value_min = torch.min(new_q_value1, new_q_value2)
-            new_q_value_target = new_q_value_min - ent_coef * new_log_prob
-            target_q_value = rewards + self.hypp.gamma * new_q_value_target * (1 - data.dones)
-        
-        q1, q2 = self.critic(data.observations.squeeze(1), data.actions)
-        q_value_loss = F.mse_loss(q1, target_q_value) + F.mse_loss(q2, target_q_value)
-        self.optimizer_critic.zero_grad()
-        q_value_loss.backward()
-        clip_grad_norm_(self.critic.parameters(), max_grad_norm)
-        self.optimizer_critic.step()
-        for param in self.policy.parameters():
-            if param.grad is not None:
-                print(f'Grad Mean: {param.grad}, Grad Std: {param.grad.std()}')
-            else:
-                print(f'Layer:  has no gradient')
-        """
-        for name, param in self.critic.named_parameters():
-            if param.grad is not None:
-                print(name, param.grad.abs().mean())
-        for name, param in self.critic_target.named_parameters():
-            if param.grad is not None:
-                print(name, param.grad.abs().mean())
-        """
-
-        for param_group in self.optimizer_actor.param_groups:
-            print(f"Actor learning rate: {param_group['lr']}")
-
-        for param_group in self.optimizer_critic.param_groups:
-            print(f"Critic learning rate: {param_group['lr']}")
-            # Logging (optional)
-        print("ent_coef: ", ent_coef)
-        print("log_entropy: ", log_alpha)
-        print("policy_loss: ", policy_loss)
-        print("q_value_loss: ", q_value_loss)
-        print("ent_coef_loss: ", ent_coef_loss)
-        
-        # Update target networks
-        if update_params:
-            for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-                target_param.data.copy_(self.hypp.tau * param.data + (1 - self.hypp.tau) * target_param.data)
     def _set_rollout_length(self,episode_step):
-        #print("episode_Step, ",episode_step)
-        
+        """
+        Sets the rollout length based on the current episode step.
+
+        :param episode_step: The current step of the episode.
+
+        This method adjusts the rollout length according to a predefined schedule. The rollout length increases
+        linearly from a minimum to a maximum value based on the episode step.
+        """
         min_epoch, max_epoch, min_length, max_length = self._rollout_schedule
         if episode_step <= min_epoch:
             y = min_length
@@ -296,6 +279,12 @@ class mbpo():
         self._rollout_length = int(y)
         #print("_rollout_length, ",self._rollout_length)
     def train(self):
+        """
+        Trains the model and policy.
+
+        This method performs the training loop, including environment interactions, policy updates, and model updates.
+        It evaluates the agent's performance periodically and logs training metrics.
+        """
         # create two vectorized envs: one to fill the rollout buffer with trajectories and
         # another one to evaluate the agent performance at different stages of training
         # Note: vectorized environments reset automatically once the episode is finished
@@ -310,19 +299,18 @@ class mbpo():
         ###############################
         #initialize mdeol
         model_env = Ensemble(env,self.hypp.learning_rate_model,num_ensembles = self.hypp.num_ensembles)
-        model_env.init_weights(torch.nn.init.xavier_uniform_)
+        model_env.init_weights()
         ###################################################################
-                # Create Actor class Instance and network optimizer pi
         # Create Actor class Instance and network optimizer
         policy = Actor(env,self.hypp.hidden_dim,self.hypp.hidden_layers_actor).to(device)
-        policy.init_weights(torch.nn.init.xavier_uniform_)
+        policy.init_weights()
         optimizer_actor = optim.Adam(policy.parameters(), lr=self.hypp.learning_rate_actor )
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer_actor, lr_lambda=self.linear_scheduler)
         #scheduler = lr_scheduler.LinearLR(optimizer_actor, start_factor=1.0, end_factor=0.3, total_iters=5000)
         #####################################################################
         # Create Critic class Instance and network optimizer Q1
         critic = Critic(env,self.hypp.hidden_dim ,self.hypp.hidden_layers_critic).to(device)
-        critic.init_weights(torch.nn.init.xavier_uniform_)
+        critic.init_weights()
         critic_target = copy.deepcopy(critic)
         optimizer_critic = optim.Adam(critic.parameters() ,lr=self.hypp.learning_rate_critic, weight_decay=0 )
         scheduler_critic = torch.optim.lr_scheduler.LambdaLR(optimizer_critic, lr_lambda=self.linear_scheduler)
@@ -483,20 +471,6 @@ class mbpo():
                     q_value_loss.backward()
                     clip_grad_norm_(critic.parameters(), max_grad_norm)
                     optimizer_critic.step()
-                    """
-                    for param in critic.parameters():
-                        if param.grad is not None:
-                            print(f'Grad Mean: {param.grad}, Grad Std: {param.grad.std()}')
-                        else:
-                            print(f'Layer:  has no gradient')
-                    
-                    for name, param in self.critic.named_parameters():
-                        if param.grad is not None:
-                            print(name, param.grad.abs().mean())
-                    for name, param in self.critic_target.named_parameters():
-                        if param.grad is not None:
-                            print(name, param.grad.abs().mean())
-                    """
 
                     for param_group in optimizer_actor.param_groups:
                         print(f"Actor learning rate: {param_group['lr']}")

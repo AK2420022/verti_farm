@@ -18,7 +18,6 @@ class EntropyNetwork(nn.Module):
         ])
 
     def forward(self, state):
-        #print(self.critics[0][0].weight)
         q =  torch.tensor(state).to(torch.float32)
         q_values = [critic(q) for critic in self.critics]
         return q_values

@@ -1,3 +1,7 @@
+#This helper functions are inspired from the assignments associated with
+#the course Reinforcement Learning and Learning Based Control 
+#By Prof. Dr. Sebastian Trimpe, Dr. Friedrich Solowjow
+#Institute for Data Science in Mechanical Engineering (DSME), RWTH Aachen University
 import torch
 import numpy as np
 import os
