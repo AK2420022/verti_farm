@@ -19,11 +19,11 @@ Please note that this repository is under construction, the notes on using the r
  There are two different conda environment.yml files provided for each mfrl and mbrl algorithms seperately. Depending on the algorithm the irrescpective conda environment can be installed and used. 
  ### Example usage
  #### Install at default location
- '''
+ ```
  conda env create -f environment.yml --prefix /location/to/install/env-name
- '''
+ ```
  #### Specify the install location
- '''
+ ```
  conda env create -f environment.yml
- '''
+ ```
  
