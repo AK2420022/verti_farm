@@ -33,30 +33,6 @@ os.environ['WANDB_NOTEBOOK_NAME'] = 'dqn.py'
 
 plt.rcParams['figure.dpi'] = 100
 device = torch.device( "cpu")
-class RewardScaler:
-    def __init__(self):
-        """
-        Initializes the RewardScaler with default values for mean, variance, and count.
-
-        The count is initialized to a small value (1e-10) to prevent division by zero during the first update.
-        """
-        self.mean = 0.0
-        self.var = 1.0
-        self.count = 1e-10  # Prevent division by zero
-
-    def scale(self, reward):
-        """
-        Normalizes the input reward using the running mean and variance.
-        
-        :param reward: The reward to be normalized.
-        :return: The normalized reward.
-        
-        """
-        self.count += 1
-        self.mean = self.mean + (reward - self.mean) / self.count
-        self.var = self.var + (reward - self.mean) * (reward - self.mean)
-        std = (self.var / self.count) ** 0.5
-        return (reward - self.mean) / std
 class mbpo():
     """
     The mbpo class implements the Model-Based Policy Optimization (MBPO) algorithm.
@@ -105,7 +81,19 @@ class mbpo():
         self.directional_reward = torch.full(fill_value=10,size=(self.hypp.num_rollouts, 1))
         self.prev_pole_angle = torch.zeros(size=(self.hypp.num_rollouts, 1))
         self.prev_action = torch.zeros(size=(self.hypp.num_rollouts, 1))
-
+    def scale(self, reward,mean = 0.0,var = 1.0,count = 1e-10 ):
+        """
+        Normalizes the input reward using the running mean and variance.
+        
+        :param reward: The reward to be normalized.
+        :return: The normalized reward.
+        
+        """
+        count += 1
+        mean = mean + (reward - mean) / count
+        var = var + (reward - mean) * (reward - mean)
+        std = (var / count) ** 0.5
+        return (reward - mean) / std
     def generate_data(self,model_env,env_rb,samples = 5000):
         """
         Generates data using the model environment and stores it in the replay buffer.
@@ -378,7 +366,6 @@ class mbpo():
                 tracked_returns_over_training.append(tracked_return)
                 tracked_episode_len_over_training.append(tracked_episode_len)
                 tracked_episode_count.append([episode_step, global_step])
-
                 # if there has been improvement of the model - save model, create video, log video to wandb
                 if np.mean(tracked_return) > eval_max_return:
                     eval_max_return = np.mean(tracked_return)
@@ -428,8 +415,7 @@ class mbpo():
                         rewards=torch.cat((real_data.rewards, img_data.rewards), dim=0)
                     )
                     # Reward scaling
-                    scaler = RewardScaler()
-                    rewards =data.rewards# scaler.scale(data.rewards)
+                    rewards =data.rewards# self.scale(data.rewards)
                     #print(rewards)
                     # Current action and probabilities
                     actions, log_prob = policy.get_action(data.observations.squeeze(1).to(torch.float32), deterministic=False)
