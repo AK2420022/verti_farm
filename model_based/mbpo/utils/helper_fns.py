@@ -257,16 +257,9 @@ def evaluate_agent(envs, model, run_count, seed, greedy_actor=False):
         episode_ret += rewards
         episode_len +=1
         for info,values in infos.items():
-            if "final_info" == info:
-                returns_over_runs.append(values[0]["episode"]["r"])
-                episode_len_over_runs.append(values[0]["episode"]["l"])
-                if run_count==len(returns_over_runs):
-                    finish = True
-                    break
-            elif done:
-                returns_over_runs.append(rewards)
-                episode_len_over_runs.append(episode_len)
-                rewards = 0
+            if "episode" == info:
+                returns_over_runs.append(values["r"])
+                episode_len_over_runs.append(values["l"])
                 if run_count==len(returns_over_runs):
                     finish = True
                     break
@@ -332,6 +325,7 @@ def plotter_agents_training_stats(exp_settings, agent_labels=None, episode_axis_
             exp_type = ""
         folder_path, _ = create_folder_relative(f"{exp_type}/{run_name}")
         full_path = f"{folder_path}/tracked_performance_training.csv"
+        print(full_path)
         if os.path.isfile(full_path):
             dfList.append(pd.read_csv(full_path))
         else:

@@ -76,11 +76,11 @@ class mbpo():
         self.writer = hf.setup_logging(f"{exp.env_id}", exp, hypp)
         self._rollout_length = self.hypp.num_rollouts
         self._rollout_schedule = self.hypp.rollout_schedule
-        self.angle_threshold = torch.full(size=(self.hypp.num_rollouts, 1),fill_value=0.2)
-        self.action_penalty = torch.full(fill_value=1,size=(self.hypp.num_rollouts, 1))
-        self.directional_reward = torch.full(fill_value=10,size=(self.hypp.num_rollouts, 1))
-        self.prev_pole_angle = torch.zeros(size=(self.hypp.num_rollouts, 1))
-        self.prev_action = torch.zeros(size=(self.hypp.num_rollouts, 1))
+        self.angle_threshold = torch.full(size=(self.hypp.num_rollouts, 1,1),fill_value=0.2)
+        self.action_penalty = 0.8
+        self.directional_reward = torch.full(fill_value=1,size=(self.hypp.num_rollouts, 1,1))
+        self.prev_pole_angle = torch.zeros(size=(self.hypp.num_rollouts, 1,1))
+        self.prev_action = torch.zeros(size=(self.hypp.num_rollouts, 1,1))
     def scale(self, reward,mean = 0.0,var = 1.0,count = 1e-10 ):
         """
         Normalizes the input reward using the running mean and variance.
@@ -101,7 +101,6 @@ class mbpo():
         :param model_env: The model environment used for data generation.
         :param env_rb: The replay buffer where generated data is stored.
         :param samples: The number of samples to generate. Default is 5000.
-\
         """
         obs = model_env.reset()[0]
         episode_step = 0
@@ -137,7 +136,7 @@ class mbpo():
             action, log_prob = policy.get_action(states)
             next_obs, reward = ensemble.sample_predictions(states,action)
             #reward function (optional reward?)
-            _,done = self.compute_reward(env,next_obs,action)
+            reward,done = self.compute_reward(env,next_obs,action,reward)
             not_done_mask = ~accum_dones
             truncated = False if episode_step < 1000 else True
             done = np.logical_or( done ,  truncated)
@@ -166,7 +165,7 @@ class mbpo():
         for i in range(obs.shape[0]):
             model_buffer.add(obs[i],next_obs[i],action[i].detach().numpy(),reward[i],done[i],{})
 
-    def compute_reward(self,env,state,action):
+    def compute_reward(self,env,state,action,reward):
         """
         Computes the reward based on the environment and the current state and action.
 
@@ -197,27 +196,30 @@ class mbpo():
             pole_angle = state[:,:,1]
             #absolute_change = old_angle - pole_angle
             # Penalize based on the pole angle
-            # Penalize based on the pole angle
+            #print("pole angle, ",pole_angle)
             angle_penalty = pole_angle ** 2
-
+            angle_penalty = angle_penalty[:,:,np.newaxis]
+            pole_angle = pole_angle[:,:,np.newaxis]
             # Penalize based on the action magnitude
             action_penalty = self.action_penalty * (action ** 2)
-
+            #print("angle_penalty, ",angle_penalty)
             # Initialize the reward
-            reward = - (angle_penalty + action_penalty)
+            reward -=  (-angle_penalty - action_penalty)
             i=0
             for pole_ang, prev_angle,act,prev_act,angle_threshold in zip(pole_angle,self.prev_pole_angle,action.detach().numpy(),self.prev_action.detach().numpy(),self.angle_threshold):
                 # Check if the pole angle increased and the action is in the same direction as the previous action
                 if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
                     # Penalize if the pole angle increased and action is in the same direction
-                    reward[i] -= self.directional_reward 
+                    reward[i] -= self.directional_reward[i] 
                 elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
                     # Reward if the pole angle increased and action is in the opposite direction
-                    reward[i] += self.directional_reward
-
+                    reward[i] += self.directional_reward[i]
+                #print("new reward: " , reward)
                 # If the pole has fallen over (angle exceeds threshold), return a large negative reward
+                
                 if abs(pole_ang) > angle_threshold:
-                    reward[i] =  -1  # Large negative reward for falling over
+                    reward[i] = -1  # Large negative reward for falling over
+                #print("new reward:, ",reward[i])
                 i+=1
             # Update the previous angle and action
             self.prev_pole_angle = pole_angle
@@ -225,7 +227,7 @@ class mbpo():
             #reward = 1.0 if np.abs(pole_angle) < 0.2 else -1
             done = (abs(pole_angle) > self.angle_threshold)
             #old_angle = pole_angle
-            return reward, done
+            return reward.detach().numpy(), done
     def print_param_values(self,model):
         """
         Prints the values of the parameters of the given model.
@@ -282,12 +284,14 @@ class mbpo():
         #ent_coef init
         log_entropy = - np.array(env.action_space.shape).prod()
         log_alpha = torch.tensor([1.0], requires_grad=True)
-        ent_coef = 0.5
+        ent_coef = 0.4
         alpha_optimizer = optim.Adam(params=[log_alpha], lr=self.hypp.learning_rate) 
+        scheduler_alpha = torch.optim.lr_scheduler.LambdaLR(alpha_optimizer, lr_lambda=self.linear_scheduler)
+
         ###############################
         #initialize mdeol
         model_env = Ensemble(env,self.hypp.learning_rate_model,num_ensembles = self.hypp.num_ensembles)
-        model_env.init_weights()
+        #model_env.init_weights()
         ###################################################################
         # Create Actor class Instance and network optimizer
         policy = Actor(env,self.hypp.hidden_dim,self.hypp.hidden_layers_actor).to(device)
@@ -356,7 +360,6 @@ class mbpo():
                     self.writer.add_scalar("Charts/episode_step", episode_step, global_step)
                     self.writer.add_scalar("Charts/gradient_step", gradient_step, global_step)
                     break
-            # ------------------ EVALUATION: DO NOT EDIT ---------------------- #
 
             # evaluation of the agent
             if self.exp.eval_agent and (global_step % self.exp.eval_frequency == 0) and last_evaluated_episode != episode_step:
@@ -373,7 +376,6 @@ class mbpo():
                     hf.save_and_log_agent(self.exp, policy, episode_step,
                                         greedy=True, print_path=False)
 
-            # ----------------------- END EVALUATION ------------------------- #
 
             # handling the terminal observation (vectorized env would skip terminal state)
             # log td_loss and q_values to tensorboard
@@ -389,9 +391,10 @@ class mbpo():
                     self.do_rollouts(env,policy,model_env,self.env_rb,self.model_rb,self.hypp.num_rollouts)
             #update grads
             if global_step > self.hypp.start_learning:
+                if global_step % self.hypp.model_train_frequency == 0:
+                    model_loss, trained_epochs = model_env.train(data_env)
                 if global_step % self.hypp.train_frequency == 0:
-                    if global_step % self.hypp.model_train_frequency == 0:
-                        model_loss, trained_epochs = model_env.train(data_env)
+
                         
                     update_param = False
                     if global_step % self.hypp.update_param_frequency == 0:
@@ -428,6 +431,7 @@ class mbpo():
                     if grad_norm > max_grad_norm:
                         log_alpha.grad *= max_grad_norm / grad_norm
                     alpha_optimizer.step()
+                    scheduler_alpha.step()
                     ent_coef = torch.exp(log_alpha)
 
                     # Update actor
@@ -435,7 +439,7 @@ class mbpo():
                     min_q_actor = torch.min(q1_actor, q2_actor)
                     policy_loss = torch.mean((ent_coef * log_prob) - min_q_actor)
                     #print("before")
-                    self.print_param_values(policy)
+                    #self.print_param_values(policy)
                     optimizer_actor.zero_grad()
                     policy_loss.backward()
                     #clip_grad_norm_(self.policy.parameters(), max_grad_norm)
@@ -482,7 +486,7 @@ class mbpo():
 
         # one last evaluation stage
         if self.exp.eval_agent:
-            tracked_return, tracked_episode_len = hf.evaluate_agent(env_eval,self.policy, self.exp.eval_count, self.exp.seed, greedy_actor = True)
+            tracked_return, tracked_episode_len = hf.evaluate_agent(env_eval,policy, self.exp.eval_count, self.exp.seed, greedy_actor = True)
             tracked_returns_over_training.append(tracked_return)
             tracked_episode_len_over_training.append(tracked_episode_len)
             tracked_episode_count.append([episode_step, global_step])

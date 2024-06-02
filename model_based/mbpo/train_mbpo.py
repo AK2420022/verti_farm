@@ -9,7 +9,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=DeprecationWarning)
     from torch.utils.tensorboard import SummaryWriter
 import torch
-from model_based.mbpo.mbpo import mbpo
+from mbpo import mbpo
 os.environ['SDL_VIDEODRIVER'] = 'dummy'
 os.environ['WANDB_NOTEBOOK_NAME'] = 'mbpo.py'
 
@@ -59,9 +59,9 @@ hypp.tau = 1e-3
 #can I automate the learning rates???
 #should work >>
 #or automate runs in all
-hypp.hidden_layers_actor =2
-hypp.hidden_layers_critic = 2
-hypp.learning_rate = 1e-5
+hypp.hidden_layers_actor =3
+hypp.hidden_layers_critic = 3
+hypp.learning_rate = 1e-4
 hypp.learning_rate_actor = 3e-3
 hypp.learning_rate_critic = 3e-3
 hypp.learning_rate_model = 3e-3
