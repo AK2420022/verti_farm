@@ -1,7 +1,7 @@
 # rl_mine
 A repository for simpler implementations of different RL algorithms 
 ## Note
-Please note that this repository is under construction, the notes on using the repository will be updated soon.
+Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **develop branch** for the latest updates.
 ### Algorithms implemented
  #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
  - DDPG
