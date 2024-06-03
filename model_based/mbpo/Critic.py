@@ -27,14 +27,14 @@ class Critic(nn.Module):
         self.q2 = nn.Sequential(*layers_q2)
         
         # Initialize weights
-        self.init_weights(init_w)
+        self.init_weights()
     def init_weights(self):
         """
         The `init_weights` function initializes the weights of linear layers in ensembles using a specified
         initialization method.
         
         """
-        init_w = 0.001
+        init_w = 0.01
         for layer in self.q1:
             if isinstance(layer, nn.Linear):
                 layer.weight.data.uniform_(-init_w, init_w)
