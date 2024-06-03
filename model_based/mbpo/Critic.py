@@ -6,20 +6,28 @@ import torch.nn.functional as F
 class Critic(nn.Module):
     def __init__(self, env,hidden_dim, hidden_layers,init_w=0.05):
         super(Critic, self).__init__()
-        layers = []
-        layers.append(nn.Linear(np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod() , hidden_dim))
-        layers.append(nn.SiLU())
-        # Add hidden layers
-        for i in range(1,hidden_layers):
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
-            layers.append(nn.SiLU())
+        # Create layers for q1
+        layers_q1 = []
+        layers_q1.append(nn.Linear(np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod(), hidden_dim))
+        layers_q1.append(nn.SiLU())
+        for i in range(1, hidden_layers):
+            layers_q1.append(nn.Linear(hidden_dim, hidden_dim))
+            layers_q1.append(nn.SiLU())
+        layers_q1.append(nn.Linear(hidden_dim, 1))
+        self.q1 = nn.Sequential(*layers_q1)
         
-        # Add output layer
-        layers.append(nn.Linear(hidden_dim, np.array(env.action_space.shape).prod()))
+        # Create layers for q2
+        layers_q2 = []
+        layers_q2.append(nn.Linear(np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod(), hidden_dim))
+        layers_q2.append(nn.SiLU())
+        for i in range(1, hidden_layers):
+            layers_q2.append(nn.Linear(hidden_dim, hidden_dim))
+            layers_q2.append(nn.SiLU())
+        layers_q2.append(nn.Linear(hidden_dim, 1))
+        self.q2 = nn.Sequential(*layers_q2)
         
-        # Create Sequential model
-        self.q1 = nn.Sequential(*layers)
-        self.q2 = nn.Sequential(*layers)
+        # Initialize weights
+        self.init_weights(init_w)
     def init_weights(self):
         """
         The `init_weights` function initializes the weights of linear layers in ensembles using a specified

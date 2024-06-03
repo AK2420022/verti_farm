@@ -210,15 +210,15 @@ class mbpo():
                 # Check if the pole angle increased and the action is in the same direction as the previous action
                 if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
                     # Penalize if the pole angle increased and action is in the same direction
-                    reward[i] -= self.directional_reward[i] 
+                    reward[i] = -1#reward[i] -= self.directional_reward[i] 
                 elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
                     # Reward if the pole angle increased and action is in the opposite direction
-                    reward[i] += self.directional_reward[i]
+                    reward[i] = 2#reward[i] += self.directional_reward[i]
                 #print("new reward: " , reward)
                 # If the pole has fallen over (angle exceeds threshold), return a large negative reward
                 
                 if abs(pole_ang) > angle_threshold:
-                    reward[i] = -1  # Large negative reward for falling over
+                    reward[i] = -2  # Large negative reward for falling over
                 #print("new reward:, ",reward[i])
                 i+=1
             # Update the previous angle and action
@@ -304,8 +304,11 @@ class mbpo():
         critic = Critic(env,self.hypp.hidden_dim ,self.hypp.hidden_layers_critic).to(device)
         critic.init_weights()
         critic_target = copy.deepcopy(critic)
-        optimizer_critic = optim.Adam(critic.parameters() ,lr=self.hypp.learning_rate_critic, weight_decay=0 )
-        scheduler_critic = torch.optim.lr_scheduler.LambdaLR(optimizer_critic, lr_lambda=self.linear_scheduler)
+        optimizer_q1 = optim.Adam(critic.q1.parameters() ,lr=self.hypp.learning_rate_critic )
+        optimizer_q2 = optim.Adam(critic.q2.parameters(),lr=self.hypp.learning_rate_critic )
+        scheduler_q1 = torch.optim.lr_scheduler.LambdaLR(optimizer_q1, lr_lambda=self.linear_scheduler)
+        scheduler_q2 = torch.optim.lr_scheduler.LambdaLR(optimizer_q2, lr_lambda=self.linear_scheduler)
+
         # Create Critic class Instance and network optimizer Q2
         # init list to track agent's performance throughout training
         tracked_returns_over_training = []
@@ -442,11 +445,11 @@ class mbpo():
                     #self.print_param_values(policy)
                     optimizer_actor.zero_grad()
                     policy_loss.backward()
-                    #clip_grad_norm_(self.policy.parameters(), max_grad_norm)
+                    clip_grad_norm_(policy.parameters(), max_grad_norm)
                     optimizer_actor.step()
   
                     #print("after")
-                    #self.print_param_values(self.policy)
+                    self.print_param_values(policy)
                     # Update critic
                     with torch.no_grad():
                         new_action, new_log_prob = policy.get_action(data.next_observations.to(torch.float32).squeeze(1), deterministic=False)
@@ -456,16 +459,18 @@ class mbpo():
                         target_q_value = rewards + self.hypp.gamma * new_q_value_target * (1 - data.dones)
                     
                     q1, q2 = critic(data.observations.squeeze(1), data.actions)
-                    q_value_loss = F.mse_loss(q1, target_q_value) + F.mse_loss(q2, target_q_value)
-                    optimizer_critic.zero_grad()
+                    q_value_loss = (F.mse_loss(q1, target_q_value) + F.mse_loss(q2, target_q_value)).mean()
+                    optimizer_q1.zero_grad()
+                    optimizer_q2.zero_grad()
                     q_value_loss.backward()
+                    self.print_param_values(critic)
                     clip_grad_norm_(critic.parameters(), max_grad_norm)
-                    optimizer_critic.step()
-
+                    optimizer_q1.step()
+                    optimizer_q2.step()
                     for param_group in optimizer_actor.param_groups:
                         print(f"Actor learning rate: {param_group['lr']}")
 
-                    for param_group in optimizer_critic.param_groups:
+                    for param_group in optimizer_q1.param_groups:
                         print(f"Critic learning rate: {param_group['lr']}")
                         # Logging (optional)
                     print("ent_coef: ", ent_coef)
@@ -481,7 +486,8 @@ class mbpo():
                     ########################################################
                     #self.train_actor(self.policy, self.model_rb,self.env_rb,ent_coef, log_alpha,log_entropy,update_param)
                     scheduler.step()
-                    scheduler_critic.step()  
+                    scheduler_q1.step()  
+                    scheduler_q2.step()  
                 print("model_loss, ", model_loss)
 
         # one last evaluation stage
