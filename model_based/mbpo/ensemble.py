@@ -11,12 +11,15 @@ class ProbabilisticNeuralNetwork(nn.Module):
         super(ProbabilisticNeuralNetwork, self).__init__()
         layers = []
         layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(nn.BatchNorm1d(hidden_dim))
         layers.append(nn.LeakyReLU())
+        
         # Add hidden layers
         for i in range(1, hidden_layers):
             layers.append(nn.Linear(hidden_dim, hidden_dim))
+            layers.append(nn.BatchNorm1d(hidden_dim))
             layers.append(nn.LeakyReLU())
-        
+            
         # Add output layer
         layers.append(nn.Linear(hidden_dim, output_dim*2) )
         self.pnn = nn.Sequential(*layers)
@@ -37,7 +40,9 @@ class ProbabilisticNeuralNetwork(nn.Module):
         
         :param x:Input x
         """
-        x = self.pnn(x)
+        x = self.pnn(x.squeeze(1))
+        x = x.unsqueeze(1)
+        
         mean, log_std = torch.chunk(x, 2, dim=-1)
         log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
         log_std = self.log_std_max - F.softplus(self.log_std_max - log_std)
@@ -56,7 +61,7 @@ class Ensemble(nn.Module):
         self.optimizers = [torch.optim.Adam(model.parameters(), lr=learning_rate) for model in self.ensembles]
         self.schedulers = [torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=self.linear_scheduler) for optimizer in self.optimizers]
         self.best_loss = [1e10 for i in range(num_ensembles)]
-        self.improvement_threshold = 0.01
+        self.improvement_threshold = 0.1
         self.max_no_improvements = 5
         self.num_elites = 5
         self.elite_models = self.ensembles
@@ -86,7 +91,7 @@ class Ensemble(nn.Module):
         initialization method.
         
         """
-        init_w = 0.001
+        init_w = 0.0001
         for layer in self.ensembles:
             for l in layer.pnn:
                 if isinstance(l, nn.Linear):

@@ -51,19 +51,20 @@ exp.eval_agent = True  # disable to speed up training
 exp.eval_count = 20
 exp.eval_frequency = 500
 exp.exp_type = None
+
 # agent training specific parameters and hyperparameters
-hypp.total_timesteps = 50000  # the training duration in number of time steps
+hypp.total_timesteps = 30000  # the training duration in number of time steps
 hypp.gamma = 0.99  # decay factor of future rewards
 hypp.tau = 1e-3
 #tweak in learning rates according to the learning rate according to the need
 #can I automate the learning rates???
 #should work >>
 #or automate runs in all
-hypp.hidden_layers_actor =3
+hypp.hidden_layers_actor =4
 hypp.hidden_layers_critic = 3
 hypp.learning_rate = 1e-4
-hypp.learning_rate_actor = 3e-3
-hypp.learning_rate_critic = 3e-3
+hypp.learning_rate_actor = 3e-2
+hypp.learning_rate_critic = 3e-2
 hypp.learning_rate_model = 3e-3
 hypp.real_img_ratio = 0.05
 hypp.display_evaluation = True #display video evaluation
@@ -75,7 +76,7 @@ hypp.rollout_schedule= [1, 15, 1, 1]
 
 hypp.buffer_size = 40000  # the size of the replay memory buffer
 hypp.kstep = 1
-hypp.num_rollouts = 400
+hypp.num_rollouts = 256
 hypp.num_ensembles = 7
 hypp.hidden_dim = 200 
 hypp.batch_size = 256 

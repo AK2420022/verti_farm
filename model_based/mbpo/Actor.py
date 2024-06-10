@@ -65,7 +65,7 @@ class Actor(nn.Module):
         init_w = 0.01
         for layer in self.actor:
             if isinstance(layer, nn.Linear):
-                layer.weight.data.uniform_(-init_w, init_w)
+                layer.weight.data.uniform_(-init_w , init_w)
                 layer.weight.data.uniform_(-init_w, init_w)
     def forward(self, state):
         """
@@ -119,6 +119,7 @@ class Actor(nn.Module):
         # If the action space is continuous, scale actions to match the range
         if not isinstance(self.action_space_type, gym.spaces.Discrete):
             action = action  #* torch.tensor(self.high)
+        #print("action, ", action)
         # Calculate log probability
         # Apply inverse transformation of squash bijector to calculate log_prob
         log_prob = distribution.log_prob(action_).sum(-1, keepdim=True)

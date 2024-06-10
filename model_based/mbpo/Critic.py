@@ -32,9 +32,8 @@ class Critic(nn.Module):
         """
         The `init_weights` function initializes the weights of linear layers in ensembles using a specified
         initialization method.
-        
         """
-        init_w = 0.01
+        init_w = 0.001
         for layer in self.q1:
             if isinstance(layer, nn.Linear):
                 layer.weight.data.uniform_(-init_w, init_w)
@@ -43,6 +42,7 @@ class Critic(nn.Module):
             if isinstance(layer, nn.Linear):
                 layer.weight.data.uniform_(-init_w, init_w)
                 layer.weight.data.uniform_(-init_w, init_w)
+
     def forward(self, state, action):
         """
         This Python function takes a state and an action as input, outputs the q values

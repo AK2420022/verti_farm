@@ -419,7 +419,7 @@ class mbpo():
                         gradient_step+=1
                     ########################################################3
                     # Hyperparameters and ratios
-                    max_grad_norm = 2
+                    max_grad_norm = 1
                     ratio = self.hypp.real_img_ratio
                     real_size = int(self.hypp.batch_size * ratio)
                     img_data_size = int(self.hypp.batch_size * (1 - ratio))
