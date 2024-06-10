@@ -76,11 +76,11 @@ class mbpo():
         self.writer = hf.setup_logging(f"{exp.env_id}", exp, hypp)
         self._rollout_length = self.hypp.num_rollouts
         self._rollout_schedule = self.hypp.rollout_schedule
-        self.angle_threshold = torch.full(size=(self.hypp.num_rollouts, 1,1),fill_value=0.2)
-        self.action_penalty = 0.8
+        self.angle_threshold = 0.2
+        self.action_penalty = 0.5
         self.directional_reward = torch.full(fill_value=1,size=(self.hypp.num_rollouts, 1,1))
-        self.prev_pole_angle = torch.zeros(size=(self.hypp.num_rollouts, 1,1))
-        self.prev_action = torch.zeros(size=(self.hypp.num_rollouts, 1,1))
+        self.prev_pole_angle = np.zeros(shape=(self.hypp.num_rollouts, 1,1))
+        self.prev_action = np.zeros(shape=(self.hypp.num_rollouts, 1,1))
     def scale(self, reward,mean = 0.0,var = 1.0,count = 1e-10 ):
         """
         Normalizes the input reward using the running mean and variance.
@@ -136,7 +136,7 @@ class mbpo():
             action, log_prob = policy.get_action(states)
             next_obs, reward = ensemble.sample_predictions(states,action)
             #reward function (optional reward?)
-            reward,done = self.compute_reward(env,next_obs,action,reward)
+            reward,done = self.compute_reward(env,states,action.detach().numpy(),reward)
             not_done_mask = ~accum_dones
             truncated = False if episode_step < 1000 else True
             done = np.logical_or( done ,  truncated)
@@ -194,39 +194,53 @@ class mbpo():
             return reward, done
         elif self.exp.env_id == "InvertedPendulum-v5":
             pole_angle = state[:,:,1]
+            #print("pole angle, ",pole_angle)
             #absolute_change = old_angle - pole_angle
             # Penalize based on the pole angle
             #print("pole angle, ",pole_angle)
             angle_penalty = pole_angle ** 2
             angle_penalty = angle_penalty[:,:,np.newaxis]
-            pole_angle = pole_angle[:,:,np.newaxis]
+            pole_angle = pole_angle[:,:,np.newaxis].detach().numpy()
             # Penalize based on the action magnitude
             action_penalty = self.action_penalty * (action ** 2)
             #print("angle_penalty, ",angle_penalty)
             # Initialize the reward
-            reward -=  (-angle_penalty - action_penalty)
-            i=0
-            for pole_ang, prev_angle,act,prev_act,angle_threshold in zip(pole_angle,self.prev_pole_angle,action.detach().numpy(),self.prev_action.detach().numpy(),self.angle_threshold):
-                # Check if the pole angle increased and the action is in the same direction as the previous action
-                if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
-                    # Penalize if the pole angle increased and action is in the same direction
-                    reward[i] = -1#reward[i] -= self.directional_reward[i] 
-                elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
-                    # Reward if the pole angle increased and action is in the opposite direction
-                    reward[i] = 2#reward[i] += self.directional_reward[i]
-                #print("new reward: " , reward)
-                # If the pole has fallen over (angle exceeds threshold), return a large negative reward
-                
+            reward -=  (angle_penalty + action_penalty)
+            #print("reward, ",reward)
+            
+            result = ""
+            angle_threshold = self.angle_threshold
+            prev_angle = pole_angle[0]
+            for i,(pole_ang,act) in enumerate(zip(pole_angle,action)): 
+                print("pole angle, ",pole_ang)
+                print("pole action, ",act)
                 if abs(pole_ang) > angle_threshold:
-                    reward[i] = -2  # Large negative reward for falling over
-                #print("new reward:, ",reward[i])
+                    result = "doomed"
+                    print(result)
+                    reward[i] -=1   
+                else:    
+                    # Check if the pole angle increased and the action is in the same direction as the previous action
+                    if abs(pole_ang) > abs(prev_angle) and np.sign(act) == np.sign(prev_act):
+                        # Penalize if the pole angle increased and action is in the same direction
+                        reward[i] -= 0.1#reward[i] -= self.directional_reward[i] 
+                        result = "penalize"
+                    elif abs(pole_ang) > abs(prev_angle) and np.sign(act) != np.sign(prev_act):
+                        # Reward if the pole angle increased and action is in the opposite direction
+                        reward[i] += 1#reward[i] += self.directional_reward[i]
+                        result = "reward"
+                prev_angle = pole_ang
+                #print("pole angle_prev_new, ",prev_angle)
+                prev_act = act
+                
+                print(result)
                 i+=1
+
+            
             # Update the previous angle and action
             self.prev_pole_angle = pole_angle
             self.prev_action = action
             #reward = 1.0 if np.abs(pole_angle) < 0.2 else -1
             done = (abs(pole_angle) > self.angle_threshold)
-            #old_angle = pole_angle
             return reward.detach().numpy(), done
     def print_param_values(self,model):
         """
@@ -248,7 +262,7 @@ class mbpo():
 
         This method computes a linear decay value that decreases from 1 to 0 over the total number of timesteps.
         """
-        return 1 - epoch / self.hypp.total_timesteps
+        return 1 - epoch / (0.6 * self.hypp.total_timesteps)
 
     def _set_rollout_length(self,episode_step):
         """
@@ -284,7 +298,7 @@ class mbpo():
         #ent_coef init
         log_entropy = - np.array(env.action_space.shape).prod()
         log_alpha = torch.tensor([1.0], requires_grad=True)
-        ent_coef = 0.4
+        ent_coef = 0.5
         alpha_optimizer = optim.Adam(params=[log_alpha], lr=self.hypp.learning_rate) 
         scheduler_alpha = torch.optim.lr_scheduler.LambdaLR(alpha_optimizer, lr_lambda=self.linear_scheduler)
 
@@ -449,7 +463,7 @@ class mbpo():
                     optimizer_actor.step()
   
                     #print("after")
-                    self.print_param_values(policy)
+                    #self.print_param_values(critic)
                     # Update critic
                     with torch.no_grad():
                         new_action, new_log_prob = policy.get_action(data.next_observations.to(torch.float32).squeeze(1), deterministic=False)
@@ -463,7 +477,7 @@ class mbpo():
                     optimizer_q1.zero_grad()
                     optimizer_q2.zero_grad()
                     q_value_loss.backward()
-                    self.print_param_values(critic)
+                    #self.print_param_values(critic)
                     clip_grad_norm_(critic.parameters(), max_grad_norm)
                     optimizer_q1.step()
                     optimizer_q2.step()
