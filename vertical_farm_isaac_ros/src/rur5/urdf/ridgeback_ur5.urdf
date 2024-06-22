@@ -17,7 +17,7 @@
   <joint name="base_lidar" type="fixed">
     <origin xyz="0. 0. 0." rpy="-1.5707964 -1.5707964 0. "/>
     <parent link="base_link"/>
-    <child link="TiM_781"/>
+    <child link="tim781"/>
     <axis xyz="1. 0. 0."/>
     <limit lower="-600.2800208" upper="600.2800208" effort="4800." velocity="15.0000002"/>
   </joint>
@@ -404,9 +404,9 @@
     </visual>
 
   </link>
-  <link name="TiM_781">
+  <link name="tim781">
     <visual>
-      <origin xyz=" 0.005 0. 0." rpy="0. 0. 1.57  "/>
+      <origin xyz=" 0. 0. 0." rpy="0. 0. 1.57  "/>
       <material name="white"/>
       <geometry>
         <cylinder length="0.05" radius="0.05"/>
