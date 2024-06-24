@@ -23,6 +23,8 @@ The vertiFarm project is aimed to accelerate vertical indoor farms with mobile r
 ![alt text](docs/verti_farm.png)
 
 ![alt text](docs/env.png)
+
+![Simulation environment](docs/demo.mp4)
 ## Temproary workaround to support usage
  There are two different conda environment.yml files provided for each mfrl and mbrl algorithms seperately. Depending on the algorithm the irrescpective conda environment can be installed and used. 
  ### Example usage
