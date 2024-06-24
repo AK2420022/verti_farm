@@ -25,7 +25,10 @@ The vertiFarm project is aimed to accelerate vertical indoor farms with mobile r
 ![alt text](docs/env.png)
 
 ### Experiments for Planning in dynamic and sparse information environments using MBRL and effecient Deep Scene Reconstructions
-![Environment](https://github.com/AK2420022/rl_mine/assets/19958594/b8634f1b-ec8f-436a-a841-3c5c462a693b)
+
+
+https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-16069d94def6
+
 
 ## Temproary workaround to support usage
  There are two different conda environment.yml files provided for each mfrl and mbrl algorithms seperately. Depending on the algorithm the irrescpective conda environment can be installed and used. 
