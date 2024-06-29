@@ -1,7 +1,10 @@
 # rl_mine
+
 A repository for simpler implementations of different RL algorithms 
+
 ## Note
 Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **develop branch** for the latest updates.
+
 ### Algorithms implemented
  #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
  - DDPG
@@ -25,6 +28,7 @@ The vertiFarm project is aimed to accelerate vertical indoor farms with mobile r
 ![alt text](docs/env.png)
 
 ![Simulation environment](docs/demo.mp4)
+
 ## Temproary workaround to support usage
  There are two different conda environment.yml files provided for each mfrl and mbrl algorithms seperately. Depending on the algorithm the irrescpective conda environment can be installed and used. 
  ### Example usage
