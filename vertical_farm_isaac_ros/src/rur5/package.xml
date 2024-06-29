@@ -4,7 +4,7 @@
   <name>rur5</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="ashik.malli.haridoss@rwth-aachen.de">ashik</maintainer>
+  <maintainer email="ashikmh14@gmail.com">ashik</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
