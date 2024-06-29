@@ -23,7 +23,7 @@ The vertiFarm project is aimed to accelerate vertical indoor farms with mobile r
 ##  Current relevant modules available and their brief usage
  - verti_farm : The IsaacSim environment for vertical farming, equipped with a mobile robot and mounted ur5 manipulator as the ego robot. Current environment is fully connected with ros2 and provides the necessary communication to establish, learn different tasks and navigation through RL and other menthods in ros2.
  - isaac_moveit_ur5control : Current control and trajectory planning interface for the ur5 manipulator to be controlled and manipulated in IsaacSim. 
-![alt text](docs/verti_farm.png)
+![alt text](docs/verti_farm_v1.png)
 
 ![alt text](docs/env.png)
 
