@@ -1,22 +1,9 @@
-# rl_mine
+# VertiFarm
 
 A repository for simpler implementations of different RL algorithms 
 
 ## Note
 Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **develop branch** for the latest updates.
-
-### Algorithms implemented
- #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
- - DDPG
- - DQN / DDQN
- - PPO
- - TD3
- - SAC
- #### Model based RL algorithms (The algorithms require gymnasium v1.0.0 alpha 2)
- - MBPO #under work, tuning required
- - DYNAQ / DYNAQ+
- #### Hingsight Experience Replay(HER) algorithms(The algorithm requires gymnasium >=0.26 )
- - With DDPG # under work, tuning required
 
 # VertiFarm project (Under construction)
 The vertiFarm project is aimed to accelerate vertical indoor farms with mobile robots that can navigate and perform mutiple tasks without minimal or no human effort.
@@ -43,4 +30,15 @@ https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-160
  ```
  conda env create -f environment.yml
  ```
- 
+ ### Additional RL Algorithms implemented
+ #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
+ - DDPG
+ - DQN / DDQN
+ - PPO
+ - TD3
+ - SAC
+ #### Model based RL algorithms (The algorithms require gymnasium v1.0.0 alpha 2)
+ - MBPO #under work, tuning required
+ - DYNAQ / DYNAQ+
+ #### Hingsight Experience Replay(HER) algorithms(The algorithm requires gymnasium >=0.26 )
+ - With DDPG # under work, tuning required
