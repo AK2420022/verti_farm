@@ -246,23 +246,20 @@ def evaluate_agent(envs, model, run_count, seed, greedy_actor=False):
     episode_len_over_runs = []
     finish = False
     envs.reset(seed=list(range(seed, seed+envs.num_envs)))
+    done = False
     episode_len = 0
     episode_ret = 0
-    while not finish:
-        
+    while not done:
         actions, log_prob = model.get_action(next_obs)#model(next_obs)
-        next_obs, rewards,truncated, terminated, infos = envs.step(actions.detach().numpy())
+        next_obs, rewards,truncated, terminated, infos = envs.step(actions.cpu().detach().numpy())
         done = truncated or terminated or (episode_len > 1000)
         next_obs = next_obs
         episode_ret += rewards
         episode_len +=1
         for info,values in infos.items():
-            if "episode" == info:
-                returns_over_runs.append(values["r"])
-                episode_len_over_runs.append(values["l"])
-                if run_count==len(returns_over_runs):
-                    finish = True
-                    break
+            if "final_info" == info:
+                returns_over_runs.append(values[0]["episode"]["r"][0])
+                episode_len_over_runs.append(values[0]["episode"]["l"][0])
 
     return returns_over_runs, episode_len_over_runs
 
@@ -289,7 +286,7 @@ def evaluate_agent_sac(envs, model, run_count, seed, greedy_actor=False):
     while not finish:
         with torch.no_grad():
             actions= model.get_action(envs,next_obs,deterministic = False,explore=False)
-        next_obs, rewards,_, _, info = envs.step(actions.detach().numpy())#.reshape(-1, 1))#
+        next_obs, rewards,_, _, info = envs.step(actions.cpu().detach().numpy())#.reshape(-1, 1))#
         #print("next_obs[1]: ",next_obs)
         next_obs = torch.Tensor(next_obs).to("cpu")
         for item in info:
@@ -395,12 +392,12 @@ def record_video(env_id, agent, file, exp_type=None, greedy=False):
     episode = 0
     while not done:
         actions,log_prob = agent.get_action(next_obs)#model(next_obs)
-        next_obs, rewards,terminated,truncated,  info = env.step(actions.detach().numpy())
+        next_obs, rewards,terminated,truncated,  info = env.step(actions.cpu().detach().numpy())
         out = env.render()
         time.sleep(0.03)
         frames.append(out)
         episode += 1
-        if terminated or truncated or (episode > 1000):
+        if terminated or truncated or (episode > 10):
             done = True
         len_episodes +=1
 
@@ -443,7 +440,7 @@ def record_video_sac(env_id, agent, file, exp_type=None, greedy=False):
     while not done:
         with torch.no_grad():
             action,log_prob = agent.get_action(env,torch.Tensor(state).to(device),deterministic = False,explore=False)
-        state, _, terminated, info = env.step(action.detach().numpy())#.reshape(1,))
+        state, _, terminated, info = env.step(action.cpu().detach().numpy())#.reshape(1,))
 
         if terminated:
             done = True

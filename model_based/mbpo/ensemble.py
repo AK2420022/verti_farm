@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import gymnasium as gym
-from Actor import Actor
-# This class represents a probabilistic neural network in Python using PyTorch.
-class ProbabilisticNeuralNetwork(nn.Module):
+from torch.utils.data import DataLoader, TensorDataset
 
-    def __init__(self, input_dim, hidden_dim, output_dim,hidden_layers,log_std_min=-10, log_std_max=2,init_w=3e-3):
+
+class ProbabilisticNeuralNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, hidden_layers, log_std_min=-20, log_std_max=2, init_w=3e-3):
         super(ProbabilisticNeuralNetwork, self).__init__()
         layers = []
         layers.append(nn.Linear(input_dim, hidden_dim))
@@ -15,214 +15,164 @@ class ProbabilisticNeuralNetwork(nn.Module):
         layers.append(nn.LeakyReLU())
         
         # Add hidden layers
-        for i in range(1, hidden_layers):
+        for _ in range(1, hidden_layers):
             layers.append(nn.Linear(hidden_dim, hidden_dim))
             layers.append(nn.BatchNorm1d(hidden_dim))
             layers.append(nn.LeakyReLU())
             
-        # Add output layer
-        layers.append(nn.Linear(hidden_dim, output_dim*2) )
+        # Output layer for both mean and log_std (output_dim * 2)
+        layers.append(nn.Linear(hidden_dim, output_dim * 2))
         self.pnn = nn.Sequential(*layers)
-        #self.pnn.apply(self.weight_init)
         self.init_weights(init_w)
-        self.log_std_min = -20 
-        self.log_std_max = 2 
+        
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
+
     def init_weights(self, init_w):
         for layer in self.pnn:
             if isinstance(layer, nn.Linear):
-                nn.init.uniform_(layer.weight, -init_w, init_w)
-                nn.init.constant_(layer.bias, 0)
+                nn.init.kaiming_uniform_(layer.weight, nonlinearity='leaky_relu')
+                #nn.init.uniform_(layer.weight, -init_w, init_w)
+                #nn.init.constant_(layer.bias, 0)
 
     def forward(self, x):
-        """
-        The `forward` function takes an input `x`, processes it through a neural network `pnn`, and returns
-        the mean and log standard deviation after some transformations.
-        
-        :param x:Input x
-        """
-        x = self.pnn(x.squeeze(1))
-        x = x.unsqueeze(1)
-        
+
+        x = self.pnn(x)
         mean, log_std = torch.chunk(x, 2, dim=-1)
         log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
         log_std = self.log_std_max - F.softplus(self.log_std_max - log_std)
-        log_std = self.log_std_max + F.softplus(log_std - self.log_std_max)
+        log_std = self.log_std_min + F.softplus(log_std - self.log_std_min)
         return mean, log_std
 
+
 class Ensemble(nn.Module):
-    def __init__(self, env,learning_rate , hidden_dim=256, num_ensembles=4,hidden_layers=4):
+    def __init__(self, env, learning_rate,num_steps, hidden_dim=256, num_ensembles=4, hidden_layers=4, prior_std=1.0):
         super(Ensemble, self).__init__()
         self.low = env.single_action_space.low
         self.high = env.single_action_space.high
-        self.input_dim = np.array(env.observation_space.shape).prod() + np.array(env.action_space.shape).prod()
-        self.output_dim = np.array(env.observation_space.shape).prod() + 1
-        self.ensembles = nn.ModuleList([ProbabilisticNeuralNetwork(self.input_dim, hidden_dim, self.output_dim,hidden_layers) for _ in range(num_ensembles)])
+        self.input_dim = np.prod(env.observation_space.shape) + np.prod(env.action_space.shape)
+        self.output_dim = np.prod(env.observation_space.shape) + 1  # Next state + reward
+
+        # Create an ensemble of PNNs
+        self.ensembles = nn.ModuleList([ProbabilisticNeuralNetwork(self.input_dim, hidden_dim, self.output_dim, hidden_layers) for _ in range(num_ensembles)])
         self.num_ensembles = num_ensembles
+
         self.optimizers = [torch.optim.Adam(model.parameters(), lr=learning_rate) for model in self.ensembles]
+        self.total_timesteps = num_steps
         self.schedulers = [torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=self.linear_scheduler) for optimizer in self.optimizers]
-        self.best_loss = [1e10 for i in range(num_ensembles)]
-        self.improvement_threshold = 0.1
-        self.max_no_improvements = 5
-        self.num_elites = 5
-        self.elite_models = self.ensembles
-        self.elite_optimizers =self.optimizers
-    def forward(self, state, action):
-        """
-        The `forward` function takes a state and an action as input, concatenates them, passes them through
-        a list of ensemble models, and returns the means and log standard deviations of the output
-        distributions.
+
+        # Variables for elite model selection
+        self.best_loss = [float('inf')] * num_ensembles
+        self.elite_models = list(range(num_ensembles))  # Start with all models as elite
+        self.num_elites = max(1, num_ensembles // 2)  # Number of elite models to select
+        self.device  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.prior_std = prior_std
         
-        :param state: Input state
-        :return: The `forward` method returns two tensors: `means` and `log_stds`. `means` is a tensor
-        containing the means calculated from the ensemble models for the given state and action, and
-        `log_stds` is a tensor containing the log standard deviations calculated from the ensemble models
-        for the given state and action.
-        """
-        q = torch.cat([torch.tensor(state).float(), torch.tensor(action).float()], dim=-1)
-        q = [ensemble(q) for ensemble in self.elite_models]
-        means, log_stds = zip(*q)
+    def forward(self, state, action):
+        if not torch.is_tensor(state):
+            state = torch.tensor(state)
+        
+        if state.ndim > 2 and state.size(1) == 1:
+            state = state.squeeze(1)
+        if not torch.is_tensor(action):
+            state = torch.tensor(action)
+        
+        if action.ndim > 2 and action.size(1) == 1:
+            action = action.squeeze(1)
+        obs_mean, obs_std = torch.mean(state, axis=0), torch.std(state, axis=0)
+        action_mean, action_std = torch.mean(action, axis=0), torch.std(action, axis=0)
+
+        state = (state - obs_mean) / obs_std
+        action = (action - action_mean) / action_std
+        inputs = torch.cat([state.to(torch.float32), action], dim=-1)
+        means, log_stds = [], []
+        for i in self.elite_models:
+            mean, log_std = self.ensembles[i](inputs.squeeze(1))
+            means.append(mean)
+            log_stds.append(log_std)
+
         means = torch.stack(means)
         log_stds = torch.stack(log_stds)
         return means, log_stds
 
-    def init_weights(self):
-        """
-        The `init_weights` function initializes the weights of linear layers in ensembles using a specified
-        initialization method.
-        
-        """
-        init_w = 0.0001
-        for layer in self.ensembles:
-            for l in layer.pnn:
-                if isinstance(l, nn.Linear):
-                    #nn.init.xavier_uniform_(l.weight)
-                    l.weight.data.uniform_(-init_w, init_w)
-                    l.weight.data.uniform_(-init_w, init_w)
-
     def sample_predictions(self, state, action):
-        """
-        This function generates sample predictions using a random model from an ensemble and samples an
-        action from the chosen model's distribution.
+        means, log_stds = self.forward(state, action)
         
-        :param state: Input current state
-        :param action: Input actions 
-        :return: The `sample_predictions` function returns the next state and reward.
-        """
-        sample_means = []
-        sample_stds = []
-        means, log_stds = self(state, action)
-        # Extract means and log_stds from predictions
-        for i in range(self.num_elites):
+        # Sample from each ensemble member
+        samples = []
+        for i in range(len(self.elite_models)):
             mean = means[i]
             std = torch.exp(log_stds[i])
-            sample_means.append(mean)
-            sample_stds.append(std)
-
-        # Stack means and stds
-        sample_means = torch.stack(sample_means)
-        sample_stds = torch.stack(sample_stds)
+            samples.append(torch.normal(mean, std))
         
-        # Choose a random model from the ensemble
-        chosen_model = np.random.randint(0, self.num_elites)
-        sample_mean = sample_means[chosen_model]
-        sample_std_ = sample_stds[chosen_model][:,:,1:].sqrt() 
-        sample_mean_= sample_mean[:,:,1:] 
-        sample_mean_action =  sample_mean[:,:,:1] 
-        #sample_std_action = sample_stds[chosen_model][:,:,:1].exp().sqrt() 
-        #next_state= state + torch.distributions.Normal(sample_mean_,sample_std_).sample()
-        next_state= torch.distributions.Normal(sample_mean_,sample_std_).sample()
-        #print("next_state, ",next_state)
+        samples = torch.stack(samples)
+        # Use the mean of the sampled predictions as the final prediction
+        mean_prediction = samples.mean(dim=0)
+        next_state = mean_prediction[..., :-1]
+        reward = mean_prediction[..., -1:]
+        return next_state, reward
 
-        reward = torch.distributions.Normal(sample_mean_action,1).sample()
-        return next_state, reward#.squeeze(1)
-    
     def loss(self, predicted_mus, predicted_log_vars, target_states):
-        """
-        This function calculates the loss using predicted means and log variances, selects elite models
-        based on the loss values, and returns the mean loss.
-        
-        :param predicted_mus: The `predicted_mus` parameter seems to represent the predicted means from a
-        model. 
-        :param predicted_log_vars: The `predicted_log_vars` parameter in the `loss` function represents the
-        predicted logarithm of the variance for each ensemble model.
-        :param target_states: `target_states` is a tensor representing the target states for the model.
-        :return: the mean of the losses calculated for the predicted values compared to the target states.
-        """
-        target_states = target_states#.unsqueeze(0).expand(self.num_ensembles, -1, -1)
+        predicted_states = predicted_mus[:, :-1]
+        target_states = target_states.squeeze(1)
+        predicted_log_vars_states = predicted_log_vars[:, :-1]
+        inv_var = torch.exp(-predicted_log_vars_states)
+
         mse_loss = nn.MSELoss(reduction='none')
-        inv_var = torch.exp(-predicted_log_vars)
-        losses = mse_loss(predicted_mus, target_states) * inv_var + predicted_log_vars
-        losses =losses.squeeze(1).mean(dim=0)
+        state_loss = 0.5 * (mse_loss(predicted_states, target_states) * inv_var + predicted_log_vars_states)
 
-        return losses.mean()
-    def linear_scheduler(self,epoch,total_time_steps = 20000):
-        """
-        Returns the linear decay value for the learning rate scheduler.
+        return state_loss.mean()
 
-        :param epoch: The current epoch number.
-        :return: The decay value based on the current epoch and total timesteps.
+    def prior_loss(self, model):
+        # Compute the prior loss based on a Gaussian prior
+        prior_loss = 0.0
+        for param in model.parameters():
+            prior_loss += torch.sum(param**2) / (2 * self.prior_std**2)
+        return prior_loss
 
-        This method computes a linear decay value that decreases from 1 to 0 over the total number of timesteps.
-        """
-        return 1 - epoch / total_time_steps
-    def train(self, data,epochs=10):
-        """
-        This function to train the ensemble 
-        
-        :param data: The sampled data from environment that is used to train the model
-        :param epochs: Number of epochs to train
-        :param target_states: `target _states` is a tensor representing the target states for the model.
-        :return: the mean of the losses calculated for the predicted values compared to the target states.
-        """
-        obs = torch.tensor(data.observations, dtype=torch.float32)
-        action = torch.tensor(data.actions, dtype=torch.float32)
-        targets = torch.tensor(data.next_observations, dtype=torch.float32)
-        action = action[:,:,np.newaxis]
-        losses = []
-        model_no = 0
-        #for epoch in range(epochs):
-        for model, optimizer,scheduler in zip(self.elite_models, self.optimizers,self.schedulers):
-            predicted_mus, predicted_log_vars = self.forward(obs, action)
-            loss = self.loss(predicted_mus[model_no,:,:,1:], predicted_log_vars[model_no,:,:,1:], targets)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            losses.append(loss.detach())
-            scheduler.step()
-            current_lr = optimizer.param_groups[0]['lr']
-            print("model_no,:", model_no)
-            print("current_lr,: ",current_lr)
-            #self.print_param_values(model)
-            model_no +=1
-            if model_no>=self.num_elites:
-                break
-        elite_indices = np.argsort(np.array(losses))[:self.num_elites]
-        models = []
-        optimizers = []
-        for i, l in enumerate(self.ensembles):
-            for idx in elite_indices:
-                if idx == i : 
-                    model = self.ensembles[i]
-                    optimizer= self.optimizers[i]
-                    models.append(model)
-                    optimizers.append(optimizer)
+    def train_step(self, data, epochs=10):
+        obs = torch.tensor(data.observations, dtype=torch.float32).to(self.device)
+        action = torch.tensor(data.actions, dtype=torch.float32).to(self.device)
+        targets = torch.tensor(data.next_observations, dtype=torch.float32).to(self.device)
 
-        self.elite_models = nn.ModuleList(models)
-        self.optimizers = optimizers
-        return loss, epochs
-    def print_param_values(self,model):
-        """
-        Prints the values of the parameters of the given model.
+        dataset = TensorDataset(obs, action, targets)
+        dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
 
-        :param model: The model whose parameters are to be printed.
+        for epoch in range(epochs):
+            epoch_losses = []
+            i = 0
+            for model, optimizer, scheduler in zip(self.ensembles, self.optimizers, self.schedulers):
+                model.train()  # Ensure the model is in training mode
 
-        This method iterates over the named parameters of the model and prints the name and value of each parameter.
-        """
-        for name, param in model.named_parameters():
-            print(f"Parameter {name} value: {param.data}")
-        for name, param in model.named_parameters():
-            if param.grad is not None:
-                print(f"Gradient for {name}:")
-                print(param.grad)
-            else:
-                print(f"No gradient for {name}")
+                for batch in dataloader:
+                    obs_batch, action_batch, targets_batch = batch
+                    optimizer.zero_grad()
+
+                    predicted_mus, predicted_log_vars = model(torch.cat((obs_batch.squeeze(1), action_batch), dim=-1))
+                    likelihood_loss = self.loss(predicted_mus, predicted_log_vars, targets_batch)
+
+                    # Combine the likelihood loss with the prior loss to get the MAP loss
+                    prior_loss = self.prior_loss(model)
+                    map_loss = likelihood_loss + prior_loss
+
+                    map_loss.backward()
+                    optimizer.step()
+
+                    epoch_losses.append(map_loss.item())
+                    scheduler.step()
+
+                # Update the best loss for each model
+                self.best_loss[i] = min(self.best_loss[i], np.mean(epoch_losses))
+                i += 1
+            elite_indices = np.argsort(self.best_loss)[:self.num_elites]
+            self.elite_models = elite_indices
+
+            # Additional logging
+            avg_loss = np.mean(epoch_losses)
+            print(f"Epoch {epoch+1}/{epochs}, Average MAP Loss: {avg_loss:.4f}")
+
+        return self.best_loss, epochs
+
+    def linear_scheduler(self, epoch):
+        total_time_steps = self.total_timesteps
+        return max(0.1, 1 - epoch / total_time_steps) 

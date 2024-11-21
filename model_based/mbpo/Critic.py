@@ -2,15 +2,20 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Critic(nn.Module):
-    def __init__(self, env,hidden_dim, hidden_layers,init_w=0.05):
+    def __init__(self, env, hidden_dim, hidden_layers, init_w=0.01):
         super(Critic, self).__init__()
+        
+        # Define the input size
+        input_size = np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod()
+
         # Create layers for q1
         layers_q1 = []
-        layers_q1.append(nn.Linear(np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod(), hidden_dim))
+        layers_q1.append(nn.Linear(input_size, hidden_dim))
         layers_q1.append(nn.SiLU())
-        for i in range(1, hidden_layers):
+        for _ in range(1, hidden_layers):
             layers_q1.append(nn.Linear(hidden_dim, hidden_dim))
             layers_q1.append(nn.SiLU())
         layers_q1.append(nn.Linear(hidden_dim, 1))
@@ -18,51 +23,60 @@ class Critic(nn.Module):
         
         # Create layers for q2
         layers_q2 = []
-        layers_q2.append(nn.Linear(np.array(env.single_observation_space.shape).prod() + np.array(env.action_space.shape).prod(), hidden_dim))
+        layers_q2.append(nn.Linear(input_size, hidden_dim))
         layers_q2.append(nn.SiLU())
-        for i in range(1, hidden_layers):
+        for _ in range(1, hidden_layers):
             layers_q2.append(nn.Linear(hidden_dim, hidden_dim))
             layers_q2.append(nn.SiLU())
         layers_q2.append(nn.Linear(hidden_dim, 1))
         self.q2 = nn.Sequential(*layers_q2)
         
         # Initialize weights
-        self.init_weights()
-    def init_weights(self):
+        self.init_weights(init_w, init_w)
+
+    def init_weights(self,init_w1, init_w2):
         """
-        The `init_weights` function initializes the weights of linear layers in ensembles using a specified
-        initialization method.
+        Initializes the weights of linear layers with uniform distribution.
         """
-        init_w = 0.001
         for layer in self.q1:
             if isinstance(layer, nn.Linear):
-                layer.weight.data.uniform_(-init_w, init_w)
-                layer.weight.data.uniform_(-init_w, init_w)
+                nn.init.kaiming_normal_(layer.weight, mode='fan_in', nonlinearity='relu')
         for layer in self.q2:
             if isinstance(layer, nn.Linear):
-                layer.weight.data.uniform_(-init_w, init_w)
-                layer.weight.data.uniform_(-init_w, init_w)
+                nn.init.kaiming_normal_(layer.weight, mode='fan_in', nonlinearity='relu')
 
     def forward(self, state, action):
         """
-        This Python function takes a state and an action as input, outputs the q values
+        Takes a state and an action as input and outputs the Q-values from both critics.
         
-        :param state: The input state
-        :param action: Input action
-        :return: The predicated q values 
+        :param state: The input state (Tensor or numpy array).
+        :param action: The input action (Tensor or numpy array).
+        :return: A tuple containing the predicted Q-values from both q1 and q2.
         """
-        q = torch.cat([torch.tensor(state).to(torch.float32), torch.tensor(action).to(torch.float32)], dim=-1)
-        return self.q1(q), self.q2(q)
+        # Ensure tensors are float32
+        
+        state = torch.tensor(state, dtype=torch.float32).to(device)
+        action = torch.tensor(action, dtype=torch.float32).to(device)
+        if state.size(1) == 1:
+            state = state.squeeze(1)
+        if action.size(1) == 1:
+            action = action.squeeze(1)
+        q_input = torch.cat([state, action], dim=-1)
+        return self.q1(q_input), self.q2(q_input)
 
     def q1_forward(self, state, action):
         """
-        This Python function takes a state and an action as input, outputs the q values 
-        based only on one critic network
+        Takes a state and an action as input and outputs the Q-values from the q1 critic.
         
-        :param state: The input state
-        :param action: Input action
-        :return: The predicated q values 
+        :param state: The input state (Tensor or numpy array).
+        :param action: The input action (Tensor or numpy array).
+        :return: The predicted Q-values from the q1 critic.
         """
-        q =   torch.cat([torch.tensor(state).to(torch.float32), torch.tensor(action).to(torch.float32)], 1)
-        q_values = self.critics[0](q)
-        return q_values
+        # Ensure tensors are float32
+        if not isinstance(state, torch.Tensor):
+            state = torch.tensor(state, dtype=torch.float32).to(device)
+        if not isinstance(action, torch.Tensor):
+            action = torch.tensor(action, dtype=torch.float32).to(device)
+
+        q_input = torch.cat([state, action], dim=-1)
+        return self.q1(q_input)
