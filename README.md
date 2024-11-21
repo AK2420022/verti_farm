@@ -12,7 +12,7 @@ The vertiFarm project is aimed to accelerate production in vertical farming and 
 ## vertical_farm_isaac_ros
    The IsaacSim environment customized for Multi Agent vertical farming, equipped with mobile manipulators to perform various tasks (current showcase focuses on visual pathalogical inspection of leaves). Current environment is fully connected with ros2 and aims to provides the necessary packages to establish communication, learn different tasks and navigation through MBRL and other Machine Learning menthods. 
 #### Current Experiments - 
- ##### MBRL experimentation with Probabilistic Neural Network ensemble as world model and VertiFarm as the true Environment
+ ##### Model based RL experimentation with Probabilistic Neural Network ensemble as world model and VertiFarm as the true Environment
  ##### Model based RL for mobile robot navigation and planning using visual states and latent models
  ##### Domain randomization and procedural generation for better learning and optimization for simulation scenarios (sim2real)
  ##### Visual pathalogical inspection of tomatoe plants
