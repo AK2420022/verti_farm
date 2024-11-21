@@ -29,6 +29,8 @@ The vertiFarm project is aimed to accelerate production in vertical farming and 
 ## Sample Environment
 ![alt text](docs/env.png)
 
+![alt text](docs/tif.png)
+
 https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-16069d94def6
 
 ## Temproary workaround to support usage
