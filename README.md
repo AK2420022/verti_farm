@@ -1,28 +1,27 @@
-# rl_mine
-
-A repository for simpler implementations of different RL algorithms 
+# The Vertifarm Project
 
 ## Note
-Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **develop branch** for the latest updates.
+Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **vpi branch** for the latest updates.
 
-### Algorithms implemented
- #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
- - DDPG
- - DQN / DDQN
- - PPO
- - TD3
- - SAC
- #### Model based RL algorithms (The algorithms require gymnasium v1.0.0 alpha 2)
- - MBPO #under work, tuning required
- - DYNAQ / DYNAQ+
- #### Hingsight Experience Replay(HER) algorithms(The algorithm requires gymnasium >=0.26 )
- - With DDPG # under work, tuning required
+# VertiFarm project
+The vertiFarm project is aimed to accelerate production in vertical farming and similar environments with mobile manipulator robot infrastructure.
 
-# VertiFarm project (Under construction)
-The vertiFarm project is aimed to accelerate vertical indoor farms with mobile robots that can navigate and perform mutiple tasks without minimal or no human effort.
-##  Current relevant modules available and their brief usage
- - verti_farm : The IsaacSim environment for vertical farming, equipped with a mobile robot and mounted ur5 manipulator as the ego robot. Current environment is fully connected with ros2 and provides the necessary communication to establish, learn different tasks and navigation through RL and other menthods in ros2.
- - isaac_moveit_ur5control : Current control and trajectory planning interface for the ur5 manipulator to be controlled and manipulated in IsaacSim. 
+##  The project is under contruction. The modules are as follows
+   ### RL Algorithms 
+   #### Deep learning based Model Free RL algorithms(The algorithms require gymnasium >=0.26 )
+   - DDPG
+   - DQN / DDQN
+   - PPO
+   - TD3
+   - SAC
+   #### Model based RL algorithms (MBRL) (The algorithms require gymnasium v1.0.0 alpha 2)
+   - MBPO experimentation with Probabilistic Neural Network ensemble as world model and VertiFarm as the true Environment
+   - DYNAQ / DYNAQ+
+   #### Hingsight Experience Replay(HER) algorithms(The algorithm requires gymnasium >=0.26 )
+   - With DDPG
+   ### vertical_farm_isaac_ros
+   The IsaacSim environment customized for Multi Agent vertical farming, equipped with mobile manipulators to perform visual pathalogical inspection of leaves. Current environment is aimed to fully connect with ros2 and provides the necessary packages to establish communication, learn different tasks and navigation through MBRL and other menthods.
+
 ![alt text](docs/verti_farm_v1.png)
 
 ![alt text](docs/env.png)
@@ -43,4 +42,4 @@ https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-160
  ```
  conda env create -f environment.yml
  ```
- 
+
