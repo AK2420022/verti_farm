@@ -24,7 +24,7 @@ The vertiFarm project is aimed to accelerate production in vertical farming and 
 
 ### Architecture
 
-![alt text](docs/verti_farm_v1.png)
+![alt text](docs/arch.png)
 
 ## Sample Environment
 ![alt text](docs/env.png)
