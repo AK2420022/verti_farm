@@ -36,11 +36,11 @@ https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-160
 ## Temproary workaround to support usage
  There are two different conda environment.yml files provided for each mfrl and mbrl algorithms seperately. Depending on the algorithm the irrescpective conda environment can be installed and used. 
  ### Example usage
- #### Install at default location
+ #### Specify the install location
  ```
  conda env create -f environment.yml --prefix /location/to/install/env-name
  ```
- #### Specify the install location
+  #### Install at default location
  ```
  conda env create -f environment.yml
  ```
