@@ -20,14 +20,14 @@ The vertiFarm project is aimed to accelerate production in vertical farming and 
    #### Hingsight Experience Replay(HER) algorithms(The algorithm requires gymnasium >=0.26 )
    - With DDPG
    ### vertical_farm_isaac_ros
-   The IsaacSim environment customized for Multi Agent vertical farming, equipped with mobile manipulators to perform visual pathalogical inspection of leaves. Current environment is aimed to fully connect with ros2 and provides the necessary packages to establish communication, learn different tasks and navigation through MBRL and other menthods.
+   The IsaacSim environment customized for Multi Agent vertical farming, equipped with mobile manipulators to perform various tasks (current showcase focuses on visual pathalogical inspection of leaves). Current environment is fully connected with ros2 and aims to provides the necessary packages to establish communication, learn different tasks and navigation through MBRL and other Machine Learning menthods. 
+
+### Architecture of MBRL experimentation with MBPO, SAC, Probabilistic Neural Network ensemble as world model and VertiFarm as the true Environment
 
 ![alt text](docs/verti_farm_v1.png)
 
+## Sample Environment
 ![alt text](docs/env.png)
-
-Experiments for  Simulation of planning, perception and control of multi-agent systems and cobots using Model based Reinforcement Learning.
-
 
 https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-16069d94def6
 
