@@ -42,4 +42,14 @@ https://github.com/AK2420022/rl_mine/assets/19958594/0487f15a-92ec-48b9-af7d-160
  ```
  conda env create -f environment.yml
  ```
-
+ #### Setting up the Isaac Sim Environment 
+ Extract the following packages and then open the example environment farmer2.usd in Isaac sim - 
+ - vertical_farm_isaac_ros/src/vertifarm/omni_assets/TIF/Collected_farmer/farmer2.tar.xz
+ - vertical_farm_isaac_ros/src/vertifarm/omni_assets/TIF/Collected_farmer/TIF/vert/t1.tar.xz
+ #### Setting up moveit support and ROS2 packages 
+ The current version supports **ROS2 Humble** and moveit2
+ You can follow the general instructions at (https://docs.ros.org/en/eloquent/Tutorials/Creating-Your-First-ROS2-Package.html#build-a-package) to build the relevant packages witin the **vertical_farm_isaac_ros** package. 
+   
+The following resources have been an inspiration for the RL implementations - 
+-  Reinforcement Learning and Learning Based Control, SoSe 2022 - Prof. Sebastin Trimpe - RWTH Aachen University, Germany
+-  DLR stable-baselines3 - https://github.com/DLR-RM/stable-baselines3/tree/master
