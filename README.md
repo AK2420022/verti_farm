@@ -8,7 +8,7 @@
 A repository for simpler implementations of different RL algorithms 
 
 ## Note
-Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **develop branch** for the latest updates.
+Please note that this repository is under construction, the notes on using the repository will be updated soon. Check **vpi branch** for the latest updates.
 
 # VertiFarm project (Under construction)
 The vertiFarm project is aimed to accelerate vertical indoor farms with mobile robots that can navigate and perform mutiple tasks without minimal or no human effort.
