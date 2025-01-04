@@ -6,14 +6,35 @@ from train_mbpo import train_mbpo
 import time
 import datetime
 import json
+
 cwd =  os.path.dirname(os.path.abspath(__file__))
 print(sys.executable)
+from mbpo_utils import VertifarmEnv_helper_fns
 
+helper_funcs = VertifarmEnv_helper_fns.helper_fns()
+helper_funcs.initialize_rclpy()
 # Load the configuration from the CFG file
-with open(os.path.join(cwd, 'config_one.yaml'), 'r') as file:
-    config = yaml.safe_load(file)
+config = helper_funcs.load_config(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config/config_one.yaml'))
 
+env_config = helper_funcs.load_config(os.path.join(cwd, 'config/vertifarm_env.yaml'))
+# register_env.py
+from gymnasium.envs.registration import register
+
+# Register the custom environment
+register(
+    id='VertifarmEnv-v0',  
+    entry_point='VertifarmEnv:Vertifarm',
+)
 def pick_random_params(config):
+    """_summary_
+    for automatic training and testing select
+    random parameters from the available config
+    Args:
+        config (yaml): hyperparameters configuration
+
+    Returns:
+        params: random parameters chosen
+    """
     params = {}
     print(config.keys())  # Print the top-level keys to confirm structure
     
@@ -31,7 +52,7 @@ def pick_random_params(config):
 script_name = os.path.join(cwd, "train_mbpo.py")
 
 # Number of random runs
-num_runs = 10
+num_runs = 1
 now = datetime.datetime.now()
 log_folder = os.path.join(cwd, "Logs" + "_" + str(now.year) + "_" +str( now.month) + "_" + str(now.day)+ "_" + str(now.hour) +"_"+str(now.minute)+"_"+str(now.second))
 if not os.path.exists(log_folder):
@@ -57,7 +78,7 @@ for i in range(num_runs):
  
     # Set the environment variables based on random parameter
     trainer = train_mbpo()
-    trainer.update_parameters(random_params)
+    trainer.update_parameters(random_params,env_config)
     # Run the script
     result =  trainer.run_training()
 
