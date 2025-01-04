@@ -94,7 +94,6 @@ For Example,```/home/omni/omni/library/isaac-sim-4.1.0/```
 #### Model-based RL Algorithms (MBRL)
 *(The algorithms require gymnasium v1.0.0 alpha 2)*
 
-- MBPO experimentation with Probabilistic Neural Network ensemble as world model and VertiFarm as the true Environment
 - DYNAQ / DYNAQ+
 
 #### Hindsight Experience Replay (HER) Algorithms
