@@ -111,4 +111,4 @@ The following resources have significantly contributed to the reinforcement lear
 2. **[DLR stable-baselines3](https://github.com/DLR-RM/stable-baselines3/tree/master)**  
    A collection of high-quality RL algorithms built on stable-baselines3.
 
-These resources provided key insights and methodologies that were integrated into our RL approach.
+These resources provided key insights and methodologies, and functions that were integrated into in RL experiments here.
