@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# VertiFarm
-A repository for simpler implementations of different RL algorithms. Check **develop branch** for latest updates 
-=======
 [![Python 3.9+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/release/python-360/)
 
 This repository is under construction, and the documentation will be updated soon. Please check the **`vpi` branch** for the latest updates.
@@ -119,4 +115,3 @@ The following resources have significantly contributed to the reinforcement lear
    A collection of high-quality RL algorithms built on stable-baselines3.
 
 These resources provided key insights and methodologies, and functions that were integrated into in RL experiments here.
->>>>>>> 58552b7d7f62e3efc13e90ccee644239cc35315d
