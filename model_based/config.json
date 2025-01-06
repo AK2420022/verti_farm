@@ -1,0 +1,33 @@
+
+
+total_timesteps = 80000  # the training duration in number of time steps
+gamma = 0.99  # decay factor of future rewards
+tau = 1e-4
+log_entropy = -3
+#tweak in learning rates according to the learning rate according to the need
+#can I automate the learning rates???
+#should work >>
+#or automate runs in all
+hidden_layers_actor =5
+hidden_layers_critic = 5
+learning_rate = 1e-4
+learning_rate_actor = 3e-2
+learning_rate_critic = 3e-3
+learning_rate_model = 3e-3
+real_img_ratio = 0.2
+display_evaluation = True #display video evaluation
+plot_training = True # plot training
+update_param_frequency = 20
+model_train_frequency =250
+rollout_schedule= [20, 150, 1, 1]
+action_prior = 'uniform'
+buffer_size = 100000  # the size of the replay memory buffer
+kstep = 1
+num_rollouts = 256
+num_ensembles = 7
+hidden_dim = 32 
+batch_size = 256 
+start_learning = 2000
+train_frequency = 1
+rollout_start = 1000
+max_ent_coef = 1.0
