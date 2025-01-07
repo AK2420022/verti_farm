@@ -108,7 +108,7 @@ For Example,```/home/omni/omni/library/isaac-sim-4.1.0/```
 
 The following resources have significantly contributed to the reinforcement learning implementations in this project:
 
-1. **Reinforcement Learning and Learning-Based Control (SoSe 2022)**  
+1. **Reinforcement Learning and Learning-Based Control (SoSe 2023)**  
    *Prof. Sebastin Trimpe*, *Dr. Friedrich Solowjow* - RWTH Aachen University, Germany
 
 2. **[DLR stable-baselines3](https://github.com/DLR-RM/stable-baselines3/tree/master)**  
