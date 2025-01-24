@@ -59,12 +59,13 @@ The current version supports **ROS2 Humble** and **MoveIt2**. You can follow the
 ### Training the Algorithm
 
 #### Architectural Outline
+![Block Diagram Outline](docs/VertiFarm.png)
 
 <p align="center">
   <img src="docs/arch_v2.png" alt="Block Diagram Outline" />
 </p>
 
-![Block Diagram Outline](docs/VertiFarm.png)
+
 #### Training
 
 The current setup is simple to run and can be applied to run multiple runs with different hyperparameters. The config files are under `/model_based/mbpo/config`. To run the experiment with one selection of parameters, you can replace the config variable with `config_one.yaml` in the script `automate.py`. 
