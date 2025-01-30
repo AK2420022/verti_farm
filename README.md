@@ -4,10 +4,10 @@ This repository is under construction, and the documentation will be updated soo
 
 ---
 
-## 🌱 **VertiFarm Project**
+## **VertiFarm Project**
 The VertiFarm project aims to accelerate production in vertical farming and similar environments using mobile manipulator robot infrastructure.
 
-### 🛠️ Modules
+### Modules
 #### **1. vertical_farm_isaac_ros**
 - A customized IsaacSim environment designed for multi-agent vertical farming.
 - Features mobile manipulators for various tasks (e.g., visual pathological inspection of leaves).
@@ -25,13 +25,13 @@ The VertiFarm project aims to accelerate production in vertical farming and simi
 
 ---
 
-## 🌍 **Sample Environment**
+## **Sample Environment**
 ![Environment Image](docs/env.png)
 ![Tomato Inspection](docs/tif.png)
 
 ---
 
-## 🔧 **Temporary Workaround for Usage**
+## **Temporary Workaround for Usage**
 Two separate `conda` environment files (`environment.yml`) are provided for:
 1. Model-Free Reinforcement Learning (MFRL).
 2. Model-Based Reinforcement Learning (MBRL).
